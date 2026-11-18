@@ -1,37 +1,30 @@
+import { apiClient } from '../lib/api';
 import { GamificationProfile, LeaderboardEntry } from '../types/gamification';
 
-const API_BASE = '/api/v1/gamification';
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
-  };
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  timestamp: string;
 }
 
 export const gamificationService = {
   async getProfile(): Promise<GamificationProfile> {
-    const res = await fetch(`${API_BASE}/profile`, { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch gamification profile');
-    const json = await res.json();
-    return json.data;
+    const res = await apiClient.get<ApiResponse<GamificationProfile>>('/gamification/profile');
+    return res.data.data;
   },
 
   async getLeaderboard(type: 'global' | 'weekly' = 'global', page = 0, size = 20): Promise<LeaderboardEntry[]> {
-    const res = await fetch(`${API_BASE}/leaderboard?type=${type}&page=${page}&size=${size}`);
-    if (!res.ok) throw new Error('Failed to fetch leaderboard');
-    const json = await res.json();
-    return json.data;
+    const res = await apiClient.get<ApiResponse<LeaderboardEntry[]>>('/gamification/leaderboard', {
+      params: { type, page, size }
+    });
+    return res.data.data;
   },
 
   async togglePrivacy(visible: boolean): Promise<boolean> {
-    const res = await fetch(`${API_BASE}/privacy?visible=${visible}`, {
-      method: 'PUT',
-      headers: getAuthHeaders()
+    const res = await apiClient.put<ApiResponse<boolean>>('/gamification/privacy', null, {
+      params: { visible }
     });
-    if (!res.ok) throw new Error('Failed to update leaderboard privacy');
-    const json = await res.json();
-    return json.data;
+    return res.data.data;
   }
 };

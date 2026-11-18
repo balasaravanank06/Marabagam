@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Award, Sparkles, BookOpen, Flame, Compass, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { gamificationService } from '../services/gamificationService';
 import { GamificationProfile } from '../types/gamification';
 import { XpProgressBar } from '../components/gamification/XpProgressBar';
@@ -6,6 +9,9 @@ import { StreakWidget } from '../components/gamification/StreakWidget';
 import { BadgeCard } from '../components/gamification/BadgeCard';
 
 export const AchievementsPage: React.FC = () => {
+  const { i18n } = useTranslation();
+  const isTa = i18n.language === 'ta';
+
   const [profile, setProfile] = useState<GamificationProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,11 +22,30 @@ export const AchievementsPage: React.FC = () => {
 
   const fetchProfile = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await gamificationService.getProfile();
-      setProfile(data);
+      // Ensure starting defaults if null
+      if (!data) {
+        setProfile({
+          totalXp: 0,
+          level: 1,
+          levelTitleEn: 'Novice Student',
+          levelTitleTa: 'ஆரம்பநிலை மாணவர்',
+          currentStreak: 0,
+          longestStreak: 0,
+          totalBadges: 0,
+          badges: []
+        });
+      } else {
+        setProfile(data);
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to load achievements');
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        (isTa ? 'சாதனைகளை ஏற்றுவதில் தோல்வி' : 'Failed to fetch gamification profile');
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -28,61 +53,181 @@ export const AchievementsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-950 text-stone-200 flex items-center justify-center">
+      <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-4">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <div className="min-h-screen bg-stone-950 text-stone-200 p-8 text-center">
-        <p className="text-red-400 mb-4">{error || 'Achievements profile not available.'}</p>
+        <p className="text-sm text-slate-400">
+          {isTa ? 'சாதனைகள் ஏற்றப்படுகின்றன...' : 'Loading your achievements...'}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-200 p-6 md:p-10">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <header className="border-b border-stone-800 pb-4">
-          <h1 className="text-3xl font-extrabold text-amber-200">
-            என் சாதனைகள் (My Achievements)
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <header className="border-b border-slate-800 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <Sparkles className="w-4 h-4" />
+            <span>{isTa ? 'பாரம்பரிய முன்னேற்றம்' : 'Heritage Progression'}</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
+            {isTa ? 'என் சாதனைகள் (My Achievements)' : 'My Achievements'}
           </h1>
-          <p className="text-stone-400 text-sm mt-1">
-            Track your XP, current level, daily learning streak, and earned Tamil heritage badges.
+          <p className="text-slate-400 text-xs sm:text-sm mt-1">
+            {isTa
+              ? 'உங்கள் கற்றல் புள்ளிகள் (XP), தற்போதைய நிலை, தினசரி கற்றல் தொடர் மற்றும் பாரம்பரியப் பதக்கங்களைக் கண்காணிக்கவும்.'
+              : 'Track your XP, current level, daily learning streak, and earned Tamil heritage badges.'}
           </p>
-        </header>
-
-        {/* Level and Streak Summary Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <XpProgressBar
-            totalXp={profile.totalXp}
-            level={profile.level}
-            levelTitleEn={profile.levelTitleEn}
-            levelTitleTa={profile.levelTitleTa}
-          />
-          <StreakWidget
-            currentStreak={profile.currentStreak}
-            longestStreak={profile.longestStreak}
-          />
         </div>
 
-        {/* Badges Section */}
-        <section className="space-y-4">
-          <div className="flex justify-between items-center border-b border-stone-800 pb-3">
-            <h2 className="text-xl font-bold text-amber-300">
-              பதக்கங்கள் (Badges) ({profile.totalBadges} / {profile.badges.length})
-            </h2>
+        <Link
+          to="/leaderboard"
+          className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 text-xs font-semibold border border-slate-700 transition self-start sm:self-auto"
+        >
+          <Award className="w-4 h-4 text-amber-400" />
+          <span>{isTa ? 'முன்னணிப் பட்டியல்' : 'Leaderboard'}</span>
+        </Link>
+      </header>
+
+      {/* Genuine API failure state with Retry */}
+      {error ? (
+        <div className="bg-rose-950/60 border border-rose-500/50 p-6 rounded-2xl text-center space-y-4 shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-rose-200">
+              {isTa ? 'சாதனை விவரங்களைப் பெற முடியவில்லை' : 'Failed to fetch gamification profile'}
+            </h3>
+            <p className="text-xs text-rose-300/80 mt-1 max-w-md mx-auto">{error}</p>
+          </div>
+          <button
+            onClick={fetchProfile}
+            className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg shadow-rose-900/30"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>{isTa ? 'மீண்டும் முயற்சிக்கவும் (Retry)' : 'Retry'}</span>
+          </button>
+        </div>
+      ) : profile ? (
+        <>
+          {/* New User Welcome & Guidance on earning XP / Badges */}
+          {profile.totalXp === 0 && profile.totalBadges === 0 && (
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-950/50 via-slate-900 to-amber-900/30 border border-amber-500/30 backdrop-blur-md shadow-xl space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-amber-200">
+                    {isTa ? 'கற்றலைத் தொடங்குங்கள் — புதிய சாதனையாளர்!' : 'Welcome, Heritage Learner! Start Earning XP'}
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    {isTa
+                      ? 'கீழே உள்ள வழிகாட்டுதல்களைப் பின்பற்றி புள்ளிகள் (XP) மற்றும் சிறப்புப் பதக்கங்களை வெல்லுங்கள்.'
+                      : 'You are at Level 1 (Novice). Complete learning activities across Marabagam to earn XP and unlock authentic heritage badges.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                  <div className="flex items-center space-x-1.5 text-amber-400 font-bold">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>{isTa ? 'பாடங்களை முடித்தல்' : 'Complete Lessons'}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    {isTa ? '+100 XP பாட நிறைவுக்கு. முதல் படி பதக்கத்தைப் பெறுங்கள்.' : '+100 XP per lesson completed. Unlocks "First Step" badge.'}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                  <div className="flex items-center space-x-1.5 text-emerald-400 font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isTa ? 'வினாடி வினா தேர்ச்சி' : 'Pass Quizzes'}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    {isTa ? '+150 XP 80%+ மதிப்பெண்ணுக்கு. முதல் வெற்றி பதக்கம்.' : '+150 XP for scoring 80%+. Unlocks "First Victory" badge.'}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                  <div className="flex items-center space-x-1.5 text-sky-400 font-bold">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isTa ? 'அசைவுப் பயிற்சி' : 'Movement Coach'}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    {isTa ? 'சிலம்பம் சுவடு பயிற்சிகளை கேமரா மூலம் சோதிக்கவும்.' : 'Practice postures with computer vision posture evaluation.'}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                  <div className="flex items-center space-x-1.5 text-rose-400 font-bold">
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>{isTa ? 'தினசரித் தொடர்' : 'Daily Streak'}</span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    {isTa ? 'தொடர்ந்து 7 நாட்கள் படித்து +100 XP போனஸ் பெறவும்.' : 'Keep a 7-day streak for an extra +100 XP bonus.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-1">
+                <Link
+                  to="/courses"
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold transition shadow-md shadow-amber-600/20"
+                >
+                  {isTa ? 'பாடங்களைத் தொடங்குங்கள்' : 'Browse Courses'}
+                </Link>
+                <Link
+                  to="/movement-coach"
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
+                >
+                  {isTa ? 'அசைவுப் பயிற்சியாளர்' : 'AI Movement Coach'}
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Level and Streak Summary Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <XpProgressBar
+              totalXp={profile.totalXp}
+              level={profile.level}
+              levelTitleEn={profile.levelTitleEn}
+              levelTitleTa={profile.levelTitleTa}
+            />
+            <StreakWidget
+              currentStreak={profile.currentStreak}
+              longestStreak={profile.longestStreak}
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {profile.badges.map(b => (
-              <BadgeCard key={b.id || b.code} badge={b} />
-            ))}
-          </div>
-        </section>
-      </div>
+          {/* Badges Section */}
+          <section className="space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h2 className="text-lg sm:text-xl font-bold text-amber-300">
+                {isTa
+                  ? `பதக்கங்கள் (${profile.totalBadges} / ${profile.badges?.length || 0})`
+                  : `Badges (${profile.totalBadges} / ${profile.badges?.length || 0})`}
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {profile.badges && profile.badges.length > 0 ? (
+                profile.badges.map((b) => (
+                  <BadgeCard key={b.id || b.code} badge={b} />
+                ))
+              ) : (
+                <div className="col-span-full p-8 text-center bg-slate-900/40 rounded-xl border border-slate-800 text-slate-500 text-xs">
+                  {isTa ? 'பதக்கங்கள் எதுவும் கிடைக்கவில்லை' : 'No badges defined in catalog.'}
+                </div>
+              )}
+            </div>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 };

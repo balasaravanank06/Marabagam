@@ -1,48 +1,31 @@
+import { apiClient } from '../lib/api';
 import { Quiz, AttemptResult, QuizSubmissionPayload } from '../types/quiz';
 
-const API_BASE = '/api/v1/quizzes';
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {})
-  };
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  timestamp: string;
 }
 
 export const quizService = {
   async getQuiz(quizId: string): Promise<Quiz> {
-    const res = await fetch(`${API_BASE}/${quizId}`, { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch quiz');
-    const json = await res.json();
-    return json.data;
+    const res = await apiClient.get<ApiResponse<Quiz>>(`/quizzes/${quizId}`);
+    return res.data.data;
   },
 
   async startAttempt(quizId: string): Promise<AttemptResult> {
-    const res = await fetch(`${API_BASE}/${quizId}/start`, {
-      method: 'POST',
-      headers: getAuthHeaders()
-    });
-    if (!res.ok) throw new Error('Failed to start quiz attempt');
-    const json = await res.json();
-    return json.data;
+    const res = await apiClient.post<ApiResponse<AttemptResult>>(`/quizzes/${quizId}/start`);
+    return res.data.data;
   },
 
   async submitAttempt(attemptId: string, payload: QuizSubmissionPayload): Promise<AttemptResult> {
-    const res = await fetch(`${API_BASE}/attempts/${attemptId}/submit`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error('Failed to submit quiz attempt');
-    const json = await res.json();
-    return json.data;
+    const res = await apiClient.post<ApiResponse<AttemptResult>>(`/quizzes/attempts/${attemptId}/submit`, payload);
+    return res.data.data;
   },
 
   async getAttemptResult(attemptId: string): Promise<AttemptResult> {
-    const res = await fetch(`${API_BASE}/attempts/${attemptId}`, { headers: getAuthHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch attempt result');
-    const json = await res.json();
-    return json.data;
+    const res = await apiClient.get<ApiResponse<AttemptResult>>(`/quizzes/attempts/${attemptId}`);
+    return res.data.data;
   }
 };
