@@ -1,0 +1,8 @@
+package com.marabagam.movement.domain;
+
+public enum SessionStatus {
+    IN_PROGRESS,
+    COMPLETED,
+    FAILED,
+    ABORTED
+}

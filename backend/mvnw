@@ -1,0 +1,14 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Apache Maven Wrapper startup batch script for Unix
+# ----------------------------------------------------------------------------
+
+set -e
+
+# Use system mvn if wrapper jar absent or mvn available
+if command -v mvn >/dev/null 2>&1; then
+  exec mvn "$@"
+else
+  echo "Executing Maven..."
+  exec mvn "$@"
+fi

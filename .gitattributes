@@ -1,0 +1,41 @@
+# Set default behavior to automatic text conversion
+* text=auto
+
+# Code files - Enforce LF line endings across Windows/Linux/macOS
+*.java text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.sql text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+Dockerfile* text eol=lf
+.editorconfig text eol=lf
+.gitignore text eol=lf
+.env.example text eol=lf
+
+# Shell scripts - Always LF (CRLF breaks Linux/Docker bash execution)
+*.sh text eol=lf
+mvnw text eol=lf
+
+# Windows Batch & PowerShell files - CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+mvnw.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.jar binary

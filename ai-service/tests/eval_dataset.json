@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "query": "What is Silambam and what is its primary weapon?",
+    "expected_answer_keywords": ["weapon", "bamboo staff", "Tamil Nadu", "Silambam stick"],
+    "is_sufficient_evidence": true
+  },
+  {
+    "id": 2,
+    "query": "சிலம்பம் தற்காப்புக் கலையின் முதன்மை ஆயுதம் எது?",
+    "expected_answer_keywords": ["silambam", "bamboo", "weapon", "சிலம்பம்"],
+    "is_sufficient_evidence": true
+  },
+  {
+    "id": 3,
+    "query": "What are the primary footwork stances in Silambam?",
+    "expected_answer_keywords": ["Kamai", "Kuthiraisubadu", "Nadisubadu"],
+    "is_sufficient_evidence": true
+  },
+  {
+    "id": 4,
+    "query": "Who invented quantum computers in ancient Tamil Nadu in 1500 BC?",
+    "expected_answer_keywords": ["sufficient", "not have sufficient"],
+    "is_sufficient_evidence": false
+  },
+  {
+    "id": 5,
+    "query": "What are the rules for cricket World Cup in traditional Tamil arts?",
+    "expected_answer_keywords": ["sufficient", "not have sufficient"],
+    "is_sufficient_evidence": false
+  }
+]
