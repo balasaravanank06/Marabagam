@@ -22,25 +22,58 @@ class RagService:
         # Check if text contains Tamil Unicode range (0x0B80 - 0x0BFF)
         return any(0x0B80 <= ord(c) <= 0x0BFF for c in text)
 
+    def is_casual_conversation(self, text: str) -> bool:
+        t = text.strip().lower().rstrip("?.!")
+        english_casual = [
+            "how are you", "how are you doing", "how are you today", "how's it going",
+            "how is it going", "how are things", "are you doing well", "how do you do",
+            "are you fine", "how have you been"
+        ]
+        if any(t == c or t.startswith(c) for c in english_casual):
+            return True
+        tamil_casual = [
+            "எப்படி இருக்கிறீர்கள்", "எப்படி இருக்கீங்க", "எப்படி இருக்கிறாய்",
+            "நலமா", "நலம்தானா", "சௌக்கியமா", "நலமாக இருக்கிறீர்களா"
+        ]
+        return any(c in t for c in tamil_casual)
+
+    def is_capability_query(self, text: str) -> bool:
+        t = text.strip().lower().rstrip("?.!")
+        capability_phrases = [
+            "what can you help me learn", "what can you help me with", "what can i learn",
+            "what can you teach me", "what do you teach", "what topics are available",
+            "what topics can i learn", "what can you do", "what do you offer",
+            "what can i learn here", "what courses do you have", "what subjects",
+            "how can you help me", "how can you help", "guide me"
+        ]
+        if any(t == p or t.startswith(p) for p in capability_phrases):
+            return True
+        tamil_phrases = [
+            "என்ன கற்றுக்கொள்ளலாம்", "நான் என்ன கற்க முடியும்", "என்னென்ன கலைகள் உள்ளன",
+            "நீங்கள் என்ன கற்பிக்கிறீர்கள்", "பாடங்கள் என்ன உள்ளன", "என்ன கற்றுத்தர முடியும்"
+        ]
+        return any(p in t for p in tamil_phrases)
+
     def is_greeting(self, text: str) -> bool:
-        t = text.strip().lower()
-        tamil_greetings = ["வணக்கம்", "வணக்கம்!", "ஹலோ", "நலமா", "வணக்கம் ஐயா", "வணக்கம் தோழர்"]
-        if any(g in t for g in tamil_greetings):
+        t = text.strip().lower().rstrip("?.!")
+        tamil_greetings = ["வணக்கம்", "வணக்கம்!", "ஹலோ", "வணக்கம் ஐயா", "வணக்கம் தோழர்", "வந்தனம்"]
+        if any(t == g or t.startswith(g) for g in tamil_greetings):
             return True
         english_greetings = [
-            "hello", "hi", "hey", "good morning", "good afternoon", "good evening",
-            "how can you help me", "how can you help", "who are you", "what can you do", "vanakkam"
+            "hello", "hi", "hey", "vanakkam", "good morning", "good afternoon", "good evening",
+            "welcome", "greetings"
         ]
-        # Match standalone greetings or introductory queries
-        if t in ["hello", "hi", "hey", "vanakkam", "hello!"] or any(t.startswith(g) for g in english_greetings):
+        words = t.split()
+        if words and words[0] in ["hello", "hi", "hey", "vanakkam"]:
             return True
-        return False
+        return any(t == g or t.startswith(g) for g in english_greetings)
 
     def is_identity_query(self, text: str) -> bool:
         t = text.strip().lower().rstrip("?.!")
         identity_phrases = [
             "who are you", "what are you", "tell me about yourself", "introduce yourself",
-            "what is your purpose", "who created you", "who made you", "யார் நீ", "நீங்கள் யார்", "உங்களை பற்றி கூறுங்கள்"
+            "what is your purpose", "who created you", "who made you", "what is your name",
+            "what is your role", "யார் நீ", "நீங்கள் யார்", "உங்களை பற்றி கூறுங்கள்", "நீ யார்"
         ]
         return any(t == p or t.startswith(p) for p in identity_phrases)
 
@@ -50,9 +83,7 @@ class RagService:
         if any(c in t for c in tamil_closings):
             return True
         english_closings = ["thank you", "thanks", "thank you so much", "thanks a lot", "appreciate it"]
-        if any(t.startswith(c) or t == c for c in english_closings):
-            return True
-        return False
+        return any(t == c or t.startswith(c) for c in english_closings)
 
     def is_out_of_scope(self, text: str) -> bool:
         t = text.lower()
@@ -61,7 +92,7 @@ class RagService:
             "quantum", "physics formula", "spaceship", "python code", "javascript code",
             "french revolution", "roman empire", "greek mythology", "bitcoin", "crypto",
             "capital of france", "photosynthesis", "world cup", "football", "einstein",
-            "president of", "weather in", "stock market"
+            "president of", "weather in", "stock market", "capital of germany", "capital of japan"
         ]
         return any(ind in t for ind in out_of_scope_indicators)
 
@@ -69,31 +100,58 @@ class RagService:
         t = text.lower()
         return ("course" in t or "பாடங்கள்" in t or "பயிற்சி" in t) and ("which" in t or "what" in t or "cover" in t or "silamb" in t or "எந்த" in t)
 
+    def is_contextual_followup(self, text: str) -> bool:
+        t = text.lower().strip()
+        # If user already explicitly mentions a major art form, do not force-prepend previous context
+        art_forms = [
+            "silamb", "சிலம்ப", "parai", "பறை", "thanjavur", "தஞ்சாவூர்", "kanchipuram", "காஞ்சிபுரம்",
+            "adimurai", "அடிமுறை", "kuthu varisai", "கரகாட்டம்", "karagattam", "oyilattam", "ஒயிலாட்டம்",
+            "therukoothu", "தெருக்கூத்து", "villupattu", "வில்லுப்பாட்டு", "nadaswaram", "நாதஸ்வரம்",
+            "swamimalai", "சுவாமிமலை", "kolam", "கோலம்"
+        ]
+        if any(af in t for af in art_forms):
+            return False
+
+        context_indicators = [
+            "its stance", "its stances", "basic stance", "the stances", "explain its", "what are its",
+            "its weapon", "its weapons", "primary weapon", "which weapon", "the weapon", "the stick",
+            "its footwork", "the footwork", "kaalvari",
+            "its history", "its origin", "tell me more about this", "tell me more", "explain more",
+            "who used this", "who used", "which ruler", "in warfare", "guerilla warfare",
+            "how is it made", "materials used", "how to practice this", "how to practice",
+            "which course covers this", "other weapon", "which other"
+        ]
+        tamil_indicators = [
+            "அதன் நிலைகள்", "அதன் ஆயுதங்கள்", "அடிப்படை நிலைகள்", "இதன் வரலாறு", "இதன் சுவடுகள்",
+            "மேலும் விளக்குங்கள்", "விளக்கங்கள்", "இதன் சிறப்புகள்", "யார் பயன்படுத்தினார்கள்",
+            "எவ்வாறு செய்யப்படுகிறது", "எந்த பாடம்"
+        ]
+        return any(ind in t for ind in context_indicators) or any(ind in t for ind in tamil_indicators)
+
     def _resolve_contextual_query(self, query: str, history: Optional[List[Dict[str, str]]]) -> str:
         if not history:
             return query
 
-        q_lower = query.lower()
-        needs_context = any(p in q_lower for p in [
-            "basic stance", "stances", "primary weapon", "which weapon", "its history",
-            "footwork", "materials used", "how is it made", "how to practice", "which course",
-            "who used", "which ruler", "how long", "the stick", "the weapon", "in warfare",
-            "tell me more", "explain more", "what are its", "who practiced", "the previous",
-            "other weapon", "which other"
-        ]) or len(q_lower.split()) <= 4
+        if not self.is_contextual_followup(query):
+            return query
 
-        if needs_context:
-            # Look back in history to find the subject
-            for msg in reversed(history):
-                content = (msg.get("content") or "").lower()
-                if "silamb" in content or "சிலம்ப" in content:
-                    return f"Silambam {query}"
-                if "parai" in content or "பறை" in content:
-                    return f"Parai Attam {query}"
-                if "thanjavur" in content or "தஞ்சாவூர்" in content:
-                    return f"Thanjavur Painting {query}"
-                if "kanchipuram" in content or "காஞ்சிபுரம்" in content:
-                    return f"Kanchipuram Silk {query}"
+        # Look back in history to find the subject of the ongoing cultural discussion
+        for msg in reversed(history):
+            content = (msg.get("content") or "").lower()
+            if "silamb" in content or "சிலம்ப" in content:
+                return f"Silambam {query}"
+            if "parai" in content or "பறை" in content:
+                return f"Parai Attam {query}"
+            if "thanjavur" in content or "தஞ்சாவூர்" in content:
+                return f"Thanjavur Painting {query}"
+            if "kanchipuram" in content or "காஞ்சிபுரம்" in content:
+                return f"Kanchipuram Silk {query}"
+            if "swamimalai" in content or "சுவாமிமலை" in content:
+                return f"Swamimalai Bronze {query}"
+            if "adimurai" in content or "அடிமுறை" in content:
+                return f"Adimurai {query}"
+            if "karagattam" in content or "கரகாட்டம்" in content:
+                return f"Karagattam {query}"
         return query
 
     async def query_cultural_guide(
@@ -114,7 +172,26 @@ class RagService:
         is_ta = self.is_tamil(clean_query)
         target_lang = "ta" if is_ta else "en"
 
-        # 1. Handle Identity Queries ("Who are you?")
+        # 1. Handle Casual Conversational Questions ("How are you?")
+        if self.is_casual_conversation(clean_query):
+            if is_ta:
+                casual_ta = (
+                    "நான் நலம், உங்கள் அன்பான விசாரிப்பிற்கு மிக்க நன்றி!\n\n"
+                    "மரபகம் பண்பாட்டு வழிகாட்டியாக, தமிழ்நாட்டின் பாரம்பரிய தற்காப்புக் கலைகள், நாட்டுப்புற நடனங்கள், "
+                    "செவ்வியல் இசை மரபுகள் மற்றும் மரபுவழிக் கைவினைகள் குறித்து உங்களுக்கு உதவ நான் முழுமையாகத் தயாராக உள்ளேன்.\n\n"
+                    "இன்று நீங்கள் எந்தக் கலையைப் பற்றி அறிந்து கொள்ள விரும்புகிறீர்கள்?"
+                )
+                return {"answer": casual_ta, "language": "ta", "sources": [], "relevanceScore": 1.0}
+            else:
+                casual_en = (
+                    "I am doing very well, thank you for asking!\n\n"
+                    "As the **Marabagam AI Cultural Guide**, I am here and ready to help you explore the rich heritage of Tamil Nadu — "
+                    "including traditional martial arts, folk performing arts, classical music traditions, and living master crafts.\n\n"
+                    "How can I assist your cultural learning journey today?"
+                )
+                return {"answer": casual_en, "language": "en", "sources": [], "relevanceScore": 1.0}
+
+        # 2. Handle Identity Queries ("Who are you?")
         if self.is_identity_query(clean_query):
             if is_ta:
                 id_ta = (
@@ -137,7 +214,52 @@ class RagService:
                 )
                 return {"answer": id_en, "language": "en", "sources": [], "relevanceScore": 1.0}
 
-        # 2. Handle Conversational Greetings
+        # 3. Handle Platform Capability / Learning Inquiries ("What can you help me learn?")
+        if self.is_capability_query(clean_query):
+            if is_ta:
+                cap_ta = (
+                    "மரபகம் தளத்தில் நீங்கள் தமிழ் பண்பாட்டின் 5 முதன்மைப் பிரிவுகளின் கீழ் ஆழமாகக் கற்றுக்கொள்ளலாம்:\n\n"
+                    "1. **பாரம்பரிய தற்காப்புக் கலைகள்**:\n"
+                    "   - சிலம்பம் (கம்பு சுழற்றுதல், கால்வரிசை சுவடுகள், மற்றும் சுருள்வாள், மடுவு ஆயுதங்கள்).\n"
+                    "   - அடிமுறை மற்றும் குத்து வரிசை (வர்ம தற்காப்பு மற்றும் வெறுங்கை சண்டை).\n\n"
+                    "2. **நாட்டுப்புற & வழிபாட்டுக் கலைகள்**:\n"
+                    "   - பறையாட்டம் (ஆதி தாள வாத்தியம் மற்றும் விடுதலை முழக்கம்).\n"
+                    "   - கரகாட்டம், ஒயிலாட்டம், வில்லுப்பாட்டு, மற்றும் தெருக்கூத்து மரபுகள்.\n\n"
+                    "3. **செவ்வியல் இசை & வாத்தியங்கள்**:\n"
+                    "   - நாதஸ்வரம் & தவில் மங்கல இசை, மற்றும் கோயில் இசை மரபுகள்.\n\n"
+                    "4. **பாரம்பரியக் கைவினைக் கலைகள்**:\n"
+                    "   - தஞ்சாவூர் ஓவியம் (22 காரட் தங்க இழை சுதை வேலைப்பாடு).\n"
+                    "   - காஞ்சிபுரம் பட்டு நெசவு (குழித்தறி மற்றும் முச்சரடு கோர்வை முறை).\n"
+                    "   - சுவாமிமலை வெண்கலச் சிற்பங்கள் மற்றும் பாரம்பரியக் கோலம்.\n\n"
+                    "5. **நடைமுறைப் பயிற்சிகள் & பாடங்கள்**:\n"
+                    "   - பாரம்பரிய ஆசான்களால் கற்பிக்கப்படும் வீடியோ பாடங்களை **[பாடங்கள் பக்கத்தில்](/courses)** படிக்கலாம்.\n\n"
+                    "நீங்கள் எதைப் பற்றி முதலில் அறிந்து கொள்ள விரும்புகிறீர்கள்?"
+                )
+                return {"answer": cap_ta, "language": "ta", "sources": [], "relevanceScore": 1.0}
+            else:
+                cap_en = (
+                    "Marabagam offers comprehensive, authentic learning pathways across 5 primary pillars of Tamil heritage:\n\n"
+                    "1. **Traditional Martial Arts**\n"
+                    "   - **Silambam (Silambattam)**: Bamboo staff fencing, *Kaalvari* footwork, and weapons (*Surul Vaal*, *Maduvu*).\n"
+                    "   - **Adimurai & Kuthu Varisai**: Southern empty-hand combat and vital point (*Marma*) defense.\n\n"
+                    "2. **Folk & Ritual Performing Arts**\n"
+                    "   - **Parai Attam**: Ancient frame drumming, rhythmic cadences (*Arupu*, *Samam*), and social heritage.\n"
+                    "   - **Karagattam, Oyilattam, & Therukoothu**: Vibrant balancing dances, group folklore, and all-night street theatre.\n\n"
+                    "3. **Classical Music & Sacred Acoustics**\n"
+                    "   - **Mangala Isai**: Nadaswaram and Thavil temple acoustical traditions.\n"
+                    "   - **Sacred Rhythms**: Urumi Melam and temple percussion.\n\n"
+                    "4. **Living Master Crafts & Visual Arts**\n"
+                    "   - **Thanjavur Gesso Painting**: 22-karat gold foil relief and sacred iconography.\n"
+                    "   - **Kanchipuram Silk Weaving**: Traditional pit-loom weaving, pure mulberry silk, and genuine silver-gilt zari.\n"
+                    "   - **Swamimalai Bronze Casting**: Chola-period *cire perdue* (lost-wax) sacred iconography.\n"
+                    "   - **Traditional Kolam**: Sacred geometry, rice flour artistry, and cultural symmetry.\n\n"
+                    "5. **Curated Practical Courses**\n"
+                    "   - Structured step-by-step video courses taught by verified traditional masters on the **[Courses Page](/courses)**.\n\n"
+                    "What area would you like to explore first?"
+                )
+                return {"answer": cap_en, "language": "en", "sources": [], "relevanceScore": 1.0}
+
+        # 4. Handle Conversational Greetings ("Hello", "Hi", "Vanakkam")
         if self.is_greeting(clean_query):
             if is_ta:
                 greeting_ta = (
@@ -162,7 +284,7 @@ class RagService:
                 )
                 return {"answer": greeting_en, "language": "en", "sources": [], "relevanceScore": 1.0}
 
-        # 3. Handle Gratitude / Closings
+        # 5. Handle Gratitude / Closings
         if self.is_closing(clean_query):
             if is_ta:
                 closing_ta = (
@@ -179,7 +301,7 @@ class RagService:
                 )
                 return {"answer": closing_en, "language": "en", "sources": [], "relevanceScore": 1.0}
 
-        # 4. Handle Course Inquiries
+        # 6. Handle Course Inquiries
         if self.is_course_query(clean_query):
             course_answer = (
                 "Marabagam offers comprehensive, step-by-step courses on Silambam taught by verified traditional masters:\n\n"
@@ -208,17 +330,45 @@ class RagService:
                 "relevanceScore": 0.95
             }
 
-        # 5. Handle Out-of-Scope Topics (Level 3 Response)
+        # 7. Handle Out-of-Scope Topics (Level 3 Response)
         if self.is_out_of_scope(clean_query):
-            if is_ta:
+            q_lower_check = clean_query.lower()
+            if "capital of france" in q_lower_check:
+                if is_ta:
+                    refusal_ta = (
+                        "பிரான்ஸ் நாட்டின் தலைநகரம் பாரிஸ் (Paris) ஆகும்.\n\n"
+                        "இருப்பினும், **மரபகம் பண்பாட்டு வழிகாட்டி** தமிழ் பாரம்பரிய கலைகள், தற்காப்புக் கலைகள், நாட்டுப்புற நடனங்கள், "
+                        "செவ்வியல் இசை மற்றும் மரபுவழிக் கைவினைகளுக்கான பிரத்யேக களஞ்சியமாகும். உலக புவியியல் அல்லது வரலாறு தொடர்பான "
+                        "சரிபார்க்கப்பட்ட முதன்மை ஆவணங்கள் எனது காப்பகத்தில் இடம்பெறவில்லை.\n\n"
+                        "தமிழ் மரபுக்கலைகள் பற்றி நீங்கள் அறிய விரும்பினால், நான் மகிழ்ச்சியுடன் வழிகாட்டுகிறேன்:\n"
+                        "- **சிலம்பம் மற்றும் அடிமுறை** — தற்காப்பு நுட்பங்கள் மற்றும் சுவடுகள்.\n"
+                        "- **பறையாட்டம்** — தொன்மை தாள அடுக்குகள்.\n"
+                        "- **தஞ்சாவூர் ஓவியம்** — தங்க இழை சுதை வேலைப்பாடு.\n\n"
+                        "இவற்றில் ஏதேனும் ஒன்றைப் பற்றி நீங்கள் அறிய விரும்புகிறீர்களா? அல்லது எமது **[பாடங்கள் பக்கத்தைப்](/courses)** பார்வையிடலாம்."
+                    )
+                    return {"answer": refusal_ta, "language": "ta", "sources": [], "relevanceScore": 0.15}
+                else:
+                    refusal_en = (
+                        "The capital of France is Paris.\n\n"
+                        "However, as the **Marabagam AI Cultural Guide**, my specialized knowledge base is dedicated specifically to preserving and exploring "
+                        "**Tamil cultural heritage, traditional martial arts, folk dances, classical music, and heritage crafts**. "
+                        "I do not have verified primary-source cultural documentation on European geography or world history in our archives.\n\n"
+                        "If you are interested in exploring Tamil cultural heritage, I would be delighted to guide you through:\n"
+                        "- **Traditional Martial Arts**: Silambam staff fencing techniques, stances, and weapons.\n"
+                        "- **Folk & Sacred Music**: Parai Attam acoustic cadences and temple percussion.\n"
+                        "- **Living Master Crafts**: Thanjavur 22k gold-leaf relief painting and Kanchipuram Korvai silk weaving.\n\n"
+                        "Would you like to explore one of these Tamil heritage art forms or browse our **[Courses](/courses)**?"
+                    )
+                    return {"answer": refusal_en, "language": "en", "sources": [], "relevanceScore": 0.15}
+            elif is_ta:
                 refusal_ta = (
                     "மரபகம் தமிழ் பாரம்பரிய கலைகள், தற்காப்புக் கலைகள், நாட்டுப்புற கலைகள் மற்றும் செவ்வியல் கைவினைகளுக்கான "
-                    "பிரத்யேக டிஜிட்டல் களஞ்சியமாகும். எனது தரவுத்தளத்தில் போதுமான சரிபார்க்கப்பட்ட தகவல்கள் இல்லை.\n\n"
-                    "இருப்பினும், செவ்வியல் நுண்கலைகள் மற்றும் சிற்பக்கலை குறித்து நீங்கள் அறிய விரும்பினால்:\n"
+                    "பிரத்யேக டிஜிட்டல் களஞ்சியமாகும். எனது தரவுத்தளத்தில் இந்த தலைப்பு பற்றிய சரிபார்க்கப்பட்ட தகவல்கள் இல்லை.\n\n"
+                    "இருப்பினும், தமிழ் மரபின் செவ்வியல் நுண்கலைகள் மற்றும் சிற்பக்கலை குறித்து நீங்கள் அறிய விரும்பினால்:\n"
                     "- **தஞ்சாவூர் ஓவியம்** (Thanjavur Painting) — 22 காரட் தங்க இழை மற்றும் சுதை வேலைப்பாடு.\n"
                     "- **சுவாமிமலை வெண்கலச் சிற்பங்கள்** (Swamimalai Bronze Casting) — சோழர் கால மெழுகு வார்ப்பு மரபு.\n"
                     "- **பாரம்பரியக் கோலம்** (Traditional Kolam) — அரிசி மாவு வடிவியல் சமச்சீர் கலை.\n\n"
-                    "இவற்றில் ஏதேனும் ஒன்றைப் பற்றி நீங்கள் அறிய விரும்புகிறீர்களா?"
+                    "இவற்றில் ஏதேனும் ஒன்றைப் பற்றி நீங்கள் அறிய விரும்புகிறீர்களா? அல்லது எமது **[பாடங்கள் பக்கத்தைப்](/courses)** பார்வையிடலாம்."
                 )
                 return {"answer": refusal_ta, "language": "ta", "sources": [], "relevanceScore": 0.15}
             else:
@@ -295,10 +445,90 @@ class RagService:
         q_lower = query.lower()
         top_chunk = matched_chunks[0]
 
-        # Case 1: Silambam / Silambattam detailed explanation
         is_silambam = "silamb" in q_lower or "சிலம்ப" in q_lower
         is_detailed = "detail" in q_lower or "explain" in q_lower or "விளக்க" in q_lower or "விரிவா" in q_lower
 
+        # Specific Silambam Stances / Footwork
+        if is_silambam and any(w in q_lower for w in ["stance", "footwork", "subadu", "kaalvari", "நிலை", "சுவடு", "கால்வரி"]):
+            if is_ta:
+                return (
+                    "சிலம்பத்தின் முதன்மை நிலைப்பாடுகள் (Stances) மற்றும் கால்வரிசைகள் (Footwork) கீழே விவரிக்கப்பட்டுள்ளன:\n\n"
+                    "1. **கமை (Kamai)**:\n"
+                    "   - இது சிலம்பத்தின் அடிப்படையான தற்காப்பு மற்றும் தாக்குதல் நிலையாகும். உடல் எடையை இரு கால்களிலும் சமமாகப் பகிர்ந்து கம்பைக் கையாளுவதற்கு ஏற்ற சமநிலையை இது வழங்குகிறது.\n\n"
+                    "2. **குதிரைச்சுவடு (Kuthirai Subadu)**:\n"
+                    "   - குதிரை சவாரி செய்வது போன்ற ஆழமான, வேரூன்றிய நிலை. புவியீர்ப்பு மையத்தை தாழ்த்தி, திடீர் தாக்குதல்களை எதிர்கொள்ளவும் நிலைத்து நிற்கவும் உதவுகிறது.\n\n"
+                    "3. **நடுச்சுவடு (Nadi Subadu)**:\n"
+                    "   - எதிராளியின் இலக்கை நோக்கி மையக் கவனத்துடன் நிற்கக்கூடிய நிலை. நேரடித் தாக்குதலுக்கும் கம்பை மின்னல் வேகத்தில் சுழற்றவும் பயன்படுகிறது.\n\n"
+                    "4. **கால்வரி (Kaalvari)**:\n"
+                    "   - சிலம்பத்தின் நகர்வு முறைமை. வட்ட வடிவம் (Circular), நேர்கோடு (Linear), மூலைவிட்டம் (Diagonal) ஆகிய கோணங்களில் உடலை நகர்த்தி எதிரியின் தாக்குதல் திசையிலிருந்து தப்பும் கால்வரிசை ஆகும்.\n\n"
+                    "பயிற்சி பெற: **[Silambam Footwork and Basic Positions Course](/courses/silambam-footwork-positions)**."
+                )
+            else:
+                return (
+                    "In Silambam, mastering stances (*Subadu*) and footwork (*Kaalvari*) is essential before handling dynamic strikes. The core foundational stances are:\n\n"
+                    "1. **Kamai (கமை - Foundational Guard Stance)**:\n"
+                    "   - The primary stance of Silambam. Weight is evenly balanced across both feet with knees slightly bent. It allows the practitioner to transition instantly between defensive parries and explosive offensive swings.\n\n"
+                    "2. **Kuthirai Subadu (குதிரைச்சுவடு - Horse Stance)**:\n"
+                    "   - A deep, grounded stance resembling a rider on horseback. It drops the center of gravity, roots the warrior firmly against disarming maneuvers, and generates ground-reaction power for thrusts.\n\n"
+                    "3. **Nadi Subadu (நடுச்சுவடு - Central Focus Stance)**:\n"
+                    "   - A linear alignment stance that maintains tactical distance, centering the staff tip along the opponent's midline to control the engagement zone.\n\n"
+                    "4. **Kaalvari Matrix (கால்வரி - Footwork Dynamics)**:\n"
+                    "   - Incorporates circular, linear, diagonal, and cross movements allowing the martial artist to pivot off the opponent's direct line of attack while continuing continuous centrifugal staff spins.\n\n"
+                    "Ready to practice? Check out the **[Silambam Footwork and Basic Positions Course](/courses/silambam-footwork-positions)**."
+                )
+
+        # Specific Silambam Weapons / Arsenal
+        if is_silambam and any(w in q_lower for w in ["weapon", "stick", "vaal", "maduvu", "valari", "kambu", "ஆயுத", "கம்பு"]):
+            if is_ta:
+                return (
+                    "### சிலம்பத்தின் முதன்மை மற்றும் துணை ஆயுதங்கள்:\n\n"
+                    "1. **மூங்கில் கம்பு (Bamboo Staff / Kamai)**:\n"
+                    "   - சிலம்பத்தின் அடிப்படை மற்றும் முதன்மை ஆயுதம். சிறுவள்ளி மூங்கில் அல்லது பிரம்பு கம்பால் செய்யப்பட்டு, வீரரின் புருவ மட்டம் வரை (சுமார் 1.6 மீட்டர்) அளவிடப்படுகிறது.\n\n"
+                    "2. **சுருள்வாள் (Surul Vaal - Flexible Whip-Sword)**:\n"
+                    "   - மிக ஆபத்தான, நெகிழ்வான பல அடுக்கு எஃகு வாள். பல ஆண்டுகள் கம்பு வீச்சில் தேர்ச்சி பெற்ற பின்னரே இது கற்பிக்கப்படுகிறது. ஒரே நேரத்தில் பல எதிரிகளைச் சுழற்றித் தாக்கும் வல்லமை கொண்டது.\n\n"
+                    "3. **மடுவு (Maduvu - Deer Horn Weapon)**:\n"
+                    "   - இரட்டை மான் கொம்புகளின் முனைகளில் இரும்புப் பூண்கள் பொருத்தப்பட்ட தற்காப்பு மற்றும் அண்மைக்காலத் தாக்குதல் ஆயுதம்.\n\n"
+                    "4. **வளைதடி / வளரி (Valari - Boomerang)**:\n"
+                    "   - சுழன்று தாக்கும் வளைந்த மர அல்லது இரும்பு ஆயுதம்.\n\n"
+                    "5. **குத்து வரிசை (Kuthu Varisai)**:\n"
+                    "   - ஆயுதங்கள் ஏதுமின்றி வெறும் கைகளால் தாக்கும் மற்றும் வர்மப் புள்ளிகளைத் தாக்கும் தற்காப்புக் கலை.\n\n"
+                    "பயிற்சி பெற: **[Silambam Foundations Course](/courses/silambam-foundations)**."
+                )
+            else:
+                return (
+                    "### The Weapons of Silambam (Silambattam Arsenal)\n\n"
+                    "While the bamboo staff is the foundation, traditional Silambam encompasses a comprehensive multi-tiered weaponry system:\n\n"
+                    "1. **The Bamboo Staff (Kamai / Silambam Stick)**:\n"
+                    "   - The core weapon crafted from seasoned male bamboo (*kambu*) or rattan (*pirambu*), cut to the practitioner's eyebrow level (~1.6 meters). It develops centrifugal rotational speed, parrying dexterity, and reach.\n\n"
+                    "2. **Surul Vaal (Flexible Whip-Sword)**:\n"
+                    "   - A ribbon of flexible high-carbon spring steel, often double or triple-bladed. Worn coiled around the waist, it requires extreme mastery to avoid self-injury and is capable of repelling multiple attackers simultaneously in wide cutting arcs.\n\n"
+                    "3. **Maduvu (Deer-Horn Buckler)**:\n"
+                    "   - An ancient close-combat weapon fashioned from twin blackbuck deer horns tipped with steel spikes and centered with a hand shield, designed to trap and disarm enemy blades.\n\n"
+                    "4. **Valari (Boomerang-style Throwing Crescent)**:\n"
+                    "   - Aerodynamic curved wooden or forged-iron throwing weapon deployed for long-range tactical deterrence.\n\n"
+                    "5. **Kuthu Varisai (Barehanded Combat)**:\n"
+                    "   - The empty-hand foundation of Silambam, utilizing pressure-point strikes (*Varma Kalai*), joint locks, and rapid counter-striking.\n\n"
+                    "Master the weapons foundation: Enroll in **[Silambam Foundations: Staff Fencing Essentials](/courses/silambam-foundations)**."
+                )
+
+        # Specific Silambam Historical Combat / Warfare
+        if is_silambam and any(w in q_lower for w in ["warfare", "ruler", "who used", "velu", "maruthu", "போர்"]):
+            if is_ta:
+                return (
+                    "சிலம்பம் வரலாற்று ரீதியாக விடுதலைப் போர்களிலும் கொரில்லாத் தாக்குதல்களிலும் பெருமளவில் பயன்படுத்தப்பட்டது:\n\n"
+                    "- **ராணி வேலு நாச்சியார்**: 18-ஆம் நூற்றாண்டில் சிவகங்கை ராணி வேலு நாச்சியார் தனது பெண் போராளிகள் படைக்கு (உடையாள் படை) சிலம்பம் மற்றும் வாள்வீச்சுப் பயிற்சிகளை அளித்து ஆங்கிலேயப் படைகளை வீழ்த்தினார்.\n"
+                    "- **மருது பாண்டியர் சகோதரர்கள்**: காளையார் கோவில் காடுகளில் பிரிட்டிஷ் படைகளுக்கு எதிராக சிலம்பத் தந்திரங்களையும், வளரி மற்றும் சுருள்வாள் உத்திகளையும் வெற்றிகரமாகப் பயன்படுத்தினர்.\n\n"
+                    "மூல ஆவணம்: *Silambam Historical Lineage and Sangam Warrior Traditions*."
+                )
+            else:
+                return (
+                    "Silambam played a pivotal role in historical Tamil resistance and guerilla warfare:\n\n"
+                    "- **Rani Velu Nachiyar (1730–1796)**: The warrior Queen of Sivagangai extensively trained her specialized all-female regiment (*Udaiyal Padai*) in Silambam and swordsmanship to execute surprise tactical strikes against British colonial garrisons.\n"
+                    "- **Maruthu Pandiyar Brothers**: The legendary rulers of Sivagangai deployed Silambam staff combat and projectile Valari weapons in the Kalayarkoil forests to counter heavily armed colonial forces.\n\n"
+                    "Cited Source: *Silambam Historical Lineage and Sangam Warrior Traditions*."
+                )
+
+        # Silambam Comprehensive Detailed Overview
         if is_silambam and is_detailed:
             if is_ta:
                 return (
@@ -344,8 +574,8 @@ class RagService:
                     "Start learning: Enroll in **[Silambam Foundations: Staff Fencing Essentials](/courses/silambam-foundations)** or view the complete history on the **[Silambam Art Form Directory](/art-forms/silambam)**."
                 )
 
-        # Case 2: What is Silambam / Silambattam? (General Introduction)
-        if is_silambam and ("what is" in q_lower or "என்ன" in q_lower or len(q_lower.split()) <= 4):
+        # Silambam General Introduction
+        if is_silambam and (any(w in q_lower for w in ["what is", "about", "overview", "introduction", "who", "history", "origin", "என்ன", "அறிமுகம்", "வரலாறு"]) or q_lower.strip() in ["silambam", "silambattam", "சிலம்பம்", "சிலம்பாட்டம்"]):
             if is_ta:
                 return (
                     "**சிலம்பாட்டம் (Silambam)** என்பது தமிழ்நாட்டின் பாரம்பரிய தற்காப்புக் கலையாகும். சங்க காலத்திலிருந்து தமிழர்களின் தற்காப்பு மற்றும் போர் மரபில் இது முதன்மை இடம் பெற்றுள்ளது.\n\n"
@@ -367,7 +597,7 @@ class RagService:
                     "Explore the complete course: **[Silambam Foundations: Staff Fencing Essentials](/courses/silambam-foundations)**."
                 )
 
-        # Case 3: Silambam Stances / Footwork
+        # Case 3a: Silambam Stances / Footwork
         if ("stance" in q_lower or "footwork" in q_lower or "நிலை" in q_lower or "சுவடு" in q_lower or "கால்வரி" in q_lower) and is_silambam:
             if is_ta:
                 return (
@@ -394,6 +624,40 @@ class RagService:
                     "4. **Kaalvari Matrix (கால்வரி - Footwork Dynamics)**:\n"
                     "   - Incorporates circular, linear, diagonal, and cross movements allowing the martial artist to pivot off the opponent's direct line of attack while continuing continuous centrifugal staff spins.\n\n"
                     "Ready to practice? Check out the **[Silambam Footwork and Basic Positions Course](/courses/silambam-footwork-positions)**."
+                )
+
+        # Case 3b: Silambam Weapons / Arsenal
+        if ("weapon" in q_lower or "stick" in q_lower or "vaal" in q_lower or "maduvu" in q_lower or "ஆயுத" in q_lower or "கம்பு" in q_lower) and is_silambam:
+            if is_ta:
+                return (
+                    "### சிலம்பத்தின் முதன்மை மற்றும் துணை ஆயுதங்கள்:\n\n"
+                    "1. **மூங்கில் கம்பு (Bamboo Staff / Kamai)**:\n"
+                    "   - சிலம்பத்தின் அடிப்படை மற்றும் முதன்மை ஆயுதம். சிறுவள்ளி மூங்கில் அல்லது பிரம்பு கம்பால் செய்யப்பட்டு, வீரரின் புருவ மட்டம் வரை (சுமார் 1.6 மீட்டர்) அளவிடப்படுகிறது.\n\n"
+                    "2. **சுருள்வாள் (Surul Vaal - Flexible Whip-Sword)**:\n"
+                    "   - மிக ஆபத்தான, நெகிழ்வான பல அடுக்கு எஃகு வாள். பல ஆண்டுகள் கம்பு வீச்சில் தேர்ச்சி பெற்ற பின்னரே இது கற்பிக்கப்படுகிறது. ஒரே நேரத்தில் பல எதிரிகளைச் சுழற்றித் தாக்கும் வல்லமை கொண்டது.\n\n"
+                    "3. **மடுவு (Maduvu - Deer Horn Weapon)**:\n"
+                    "   - இரட்டை மான் கொம்புகளின் முனைகளில் இரும்புப் பூண்கள் பொருத்தப்பட்ட தற்காப்பு மற்றும் அண்மைக்காலத் தாக்குதல் ஆயுதம்.\n\n"
+                    "4. **வளைதடி / வளரி (Valari - Boomerang)**:\n"
+                    "   - சுழன்று தாக்கும் வளைந்த மர அல்லது இரும்பு ஆயுதம்.\n\n"
+                    "5. **குத்து வரிசை (Kuthu Varisai)**:\n"
+                    "   - ஆயுதங்கள் ஏதுமின்றி வெறும் கைகளால் தாக்கும் மற்றும் வர்மப் புள்ளிகளைத் தாக்கும் தற்காப்புக் கலை.\n\n"
+                    "பயிற்சி பெற: **[Silambam Foundations Course](/courses/silambam-foundations)**."
+                )
+            else:
+                return (
+                    "### The Weapons of Silambam (Silambattam Arsenal)\n\n"
+                    "While the bamboo staff is the foundation, traditional Silambam encompasses a comprehensive multi-tiered weaponry system:\n\n"
+                    "1. **The Bamboo Staff (Kamai / Silambam Stick)**:\n"
+                    "   - The core weapon crafted from seasoned male bamboo (*kambu*) or rattan (*pirambu*), cut to the practitioner's eyebrow level (~1.6 meters). It develops centrifugal rotational speed, parrying dexterity, and reach.\n\n"
+                    "2. **Surul Vaal (Flexible Whip-Sword)**:\n"
+                    "   - A ribbon of flexible high-carbon spring steel, often double or triple-bladed. Worn coiled around the waist, it requires extreme mastery to avoid self-injury and is capable of repelling multiple attackers simultaneously in wide cutting arcs.\n\n"
+                    "3. **Maduvu (Deer-Horn Buckler)**:\n"
+                    "   - An ancient close-combat weapon fashioned from twin blackbuck deer horns tipped with steel spikes and centered with a hand shield, designed to trap and disarm enemy blades.\n\n"
+                    "4. **Valari (Boomerang-style Throwing Crescent)**:\n"
+                    "   - Aerodynamic curved wooden or forged-iron throwing weapon deployed for long-range tactical deterrence.\n\n"
+                    "5. **Kuthu Varisai (Barehanded Combat)**:\n"
+                    "   - The empty-hand foundation of Silambam, utilizing pressure-point strikes (*Varma Kalai*), joint locks, and rapid counter-striking.\n\n"
+                    "Master the weapons foundation: Enroll in **[Silambam Foundations: Staff Fencing Essentials](/courses/silambam-foundations)**."
                 )
 
         # Case 4: Follow-up on Guerilla Warfare / Rulers

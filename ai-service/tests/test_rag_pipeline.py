@@ -32,3 +32,50 @@ def test_insufficient_evidence_refusal():
     res = asyncio.run(rag_service.query_cultural_guide("Quantum physics formula for ancient spaceship"))
     assert "not have sufficient verified cultural information" in res["answer"].lower() or "போதுமான" in res["answer"]
     assert len(res["sources"]) == 0
+
+def test_casual_conversation_isolation_from_history():
+    # Simulate prior conversation history about Silambam
+    history = [
+        {"sender": "USER", "content": "What is Silambam?"},
+        {"sender": "ASSISTANT", "content": "Silambam is an ancient weapon-based Tamil martial art."}
+    ]
+    res = asyncio.run(rag_service.query_cultural_guide("How are you?", history=history))
+    ans = res["answer"].lower()
+    # Must NOT mention Silambam or stick/staff fighting!
+    assert "silamb" not in ans
+    assert "doing very well" in ans or "நலம்" in ans
+
+def test_greeting_and_identity_queries():
+    res_greet = asyncio.run(rag_service.query_cultural_guide("Hello!"))
+    assert "marabagam ai cultural guide" in res_greet["answer"].lower() or "vanakkam" in res_greet["answer"].lower()
+
+    res_id = asyncio.run(rag_service.query_cultural_guide("Who are you?"))
+    assert "intelligent educational companion" in res_id["answer"].lower() or "டிஜிட்டல் உதவியாளன்" in res_id["answer"]
+
+def test_capability_query():
+    res_cap = asyncio.run(rag_service.query_cultural_guide("What can you help me learn?"))
+    ans = res_cap["answer"].lower()
+    assert "traditional martial arts" in ans
+    assert "folk & ritual performing arts" in ans
+    assert "living master crafts" in ans
+
+def test_cultural_contextual_followup():
+    history = [
+        {"sender": "USER", "content": "What is Silambam?"},
+        {"sender": "ASSISTANT", "content": "Silambam is an ancient weapon-based Tamil martial art."}
+    ]
+    res_stance = asyncio.run(rag_service.query_cultural_guide("Explain its basic stances.", history=history))
+    ans = res_stance["answer"].lower()
+    assert "kamai" in ans
+    assert "kuthirai subadu" in ans
+
+    res_weapons = asyncio.run(rag_service.query_cultural_guide("What are its weapons?", history=history))
+    ans_w = res_weapons["answer"].lower()
+    assert "bamboo staff" in ans_w or "surul vaal" in ans_w
+
+def test_out_of_scope_level_3():
+    res_france = asyncio.run(rag_service.query_cultural_guide("What is the capital of France?"))
+    ans = res_france["answer"]
+    assert "Paris" in ans
+    assert "Marabagam AI Cultural Guide" in ans
+    assert "courses" in ans.lower()

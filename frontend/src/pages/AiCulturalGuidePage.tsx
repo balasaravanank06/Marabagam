@@ -11,75 +11,102 @@ const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ con
     return <p className="whitespace-pre-wrap">{content}</p>;
   }
 
+  // Tokenize and render inline formatting cleanly:
+  // 1. Bold link: **[label](url)**
+  // 2. Regular link: [label](url)
+  // 3. Bold text: **text**
+  // 4. Italic text: *text*
+  // 5. Plain text (with any orphan markdown artifacts cleanly stripped)
   const renderInlineFormatted = (text: string) => {
-    // Matches links: [label](url), bold: **bold**, and italic: *italic*
-    const parts: React.ReactNode[] = [];
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    let lastIdx = 0;
-    let match;
+    const inlineRegex = /(\*\*\[[^\]]+\]\([^)]+\)\*\*|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+    const tokens = text.split(inlineRegex);
 
-    while ((match = linkRegex.exec(text)) !== null) {
-      if (match.index > lastIdx) {
-        parts.push(renderBoldItalic(text.slice(lastIdx, match.index), `sub-${lastIdx}`));
-      }
-      const label = match[1];
-      const url = match[2];
-      const isInternal = url.startsWith('/');
-      if (isInternal) {
-        parts.push(
-          <Link
-            key={`link-${match.index}`}
-            to={url}
-            className="text-amber-700 hover:text-amber-900 font-semibold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
-          >
-            {label}
-          </Link>
-        );
-      } else {
-        parts.push(
+    return tokens.map((token, idx) => {
+      if (!token) return null;
+
+      // 1. Bold link: **[label](url)**
+      const boldLinkMatch = token.match(/^\*\*\[([^\]]+)\]\(([^)]+)\)\*\*$/);
+      if (boldLinkMatch) {
+        const rawLabel = boldLinkMatch[1].replace(/\*\*/g, '').trim();
+        const url = boldLinkMatch[2].trim();
+        const isInternal = url.startsWith('/');
+        if (isInternal) {
+          return (
+            <Link
+              key={`blink-${idx}`}
+              to={url}
+              className="text-amber-700 hover:text-amber-900 font-bold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
+            >
+              {rawLabel}
+            </Link>
+          );
+        }
+        return (
           <a
-            key={`link-${match.index}`}
+            key={`blink-${idx}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-700 hover:text-amber-900 font-bold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
+          >
+            {rawLabel} <ExternalLink className="w-3 h-3 inline" />
+          </a>
+        );
+      }
+
+      // 2. Regular link: [label](url)
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        const rawLabel = linkMatch[1].replace(/\*\*/g, '').trim();
+        const url = linkMatch[2].trim();
+        const isInternal = url.startsWith('/');
+        if (isInternal) {
+          return (
+            <Link
+              key={`link-${idx}`}
+              to={url}
+              className="text-amber-700 hover:text-amber-900 font-semibold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
+            >
+              {rawLabel}
+            </Link>
+          );
+        }
+        return (
+          <a
+            key={`link-${idx}`}
             href={url}
             target="_blank"
             rel="noopener noreferrer"
             className="text-amber-700 hover:text-amber-900 font-semibold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
           >
-            {label} <ExternalLink className="w-3 h-3 inline" />
+            {rawLabel} <ExternalLink className="w-3 h-3 inline" />
           </a>
         );
       }
-      lastIdx = linkRegex.lastIndex;
-    }
 
-    if (lastIdx < text.length) {
-      parts.push(renderBoldItalic(text.slice(lastIdx), `sub-${lastIdx}`));
-    }
-
-    return parts;
-  };
-
-  const renderBoldItalic = (text: string, keyPrefix: string) => {
-    // Handle **bold** and *italic*
-    const boldTokens = text.split(/(\*\*[^*]+\*\*)/g);
-    return boldTokens.map((token, i) => {
-      if (token.startsWith('**') && token.endsWith('**')) {
+      // 3. Bold text: **text**
+      const boldMatch = token.match(/^\*\*([^*]+)\*\*$/);
+      if (boldMatch) {
         return (
-          <strong key={`${keyPrefix}-b-${i}`} className="font-semibold text-stone-900">
-            {token.slice(2, -2)}
+          <strong key={`b-${idx}`} className="font-semibold text-stone-900">
+            {boldMatch[1]}
           </strong>
         );
       }
-      const italicTokens = token.split(/(\*[^*]+\*)/g);
-      return italicTokens.map((it, j) => {
-        if (it.startsWith('*') && it.endsWith('*')) {
-          return (
-            <em key={`${keyPrefix}-i-${i}-${j}`} className="italic text-stone-700">
-              {it.slice(1, -1)}
-            </em>
-          );
-        }
-        return it;
-      });
+
+      // 4. Italic text: *text*
+      const italicMatch = token.match(/^\*([^*]+)\*$/);
+      if (italicMatch) {
+        return (
+          <em key={`i-${idx}`} className="italic text-stone-700">
+            {italicMatch[1]}
+          </em>
+        );
+      }
+
+      // 5. Plain text: strip any accidental orphan ** or markdown markers so no literal ** is displayed
+      const cleaned = token.replace(/\*\*/g, '');
+      return <span key={`t-${idx}`}>{cleaned}</span>;
     });
   };
 
@@ -102,7 +129,15 @@ const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ con
     const trimmed = line.trim();
 
     // Headings
-    if (trimmed.startsWith('### ')) {
+    if (trimmed.startsWith('#### ')) {
+      flushList(`flush-${idx}`);
+      elements.push(
+        <h5 key={`h5-${idx}`} className="font-serif font-bold text-amber-900 text-xs sm:text-sm mt-2.5 mb-1 flex items-center gap-1.5">
+          <span className="w-1 h-1 rounded-full bg-amber-500 inline-block"></span>
+          {renderInlineFormatted(trimmed.slice(5))}
+        </h5>
+      );
+    } else if (trimmed.startsWith('### ')) {
       flushList(`flush-${idx}`);
       elements.push(
         <h4 key={`h4-${idx}`} className="font-serif font-bold text-amber-950 text-sm sm:text-base mt-3 mb-1.5 flex items-center gap-1.5">
