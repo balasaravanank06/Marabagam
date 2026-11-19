@@ -5,11 +5,43 @@ import { useAuth } from '../context/AuthContext';
 import { aiService } from '../services/aiService';
 import { AiConversation, AiMessage } from '../types/ai';
 
+// Decode HTML entities (e.g. &#x45;, &#39;, &quot;, &amp;)
+const decodeHtmlEntities = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      try {
+        return String.fromCharCode(parseInt(hex, 16));
+      } catch {
+        return '';
+      }
+    })
+    .replace(/&#([0-9]+);/g, (_, dec) => {
+      try {
+        return String.fromCharCode(parseInt(dec, 10));
+      } catch {
+        return '';
+      }
+    })
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ');
+};
+
 // Custom Markdown Renderer for rich heritage responses without extra heavy dependencies
 const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ content, isUser }) => {
   if (isUser) {
     return <p className="whitespace-pre-wrap">{content}</p>;
   }
+
+  // Pre-process: decode HTML entities, unescape backslash-escaped markdown, and strip any stray raw SVG tags
+  let sanitized = decodeHtmlEntities(content || '');
+  sanitized = sanitized.replace(/\\(\*|_|\[|\]|\(|\)|#|-|\.)/g, '$1');
+  sanitized = sanitized.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '');
 
   // Tokenize and render inline formatting cleanly:
   // 1. Bold link: **[label](url)**
@@ -27,7 +59,7 @@ const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ con
       // 1. Bold link: **[label](url)**
       const boldLinkMatch = token.match(/^\*\*\[([^\]]+)\]\(([^)]+)\)\*\*$/);
       if (boldLinkMatch) {
-        const rawLabel = boldLinkMatch[1].replace(/\*\*/g, '').trim();
+        const rawLabel = boldLinkMatch[1].replace(/\\?\*/g, '').trim();
         const url = boldLinkMatch[2].trim();
         const isInternal = url.startsWith('/');
         if (isInternal) {
@@ -57,7 +89,7 @@ const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ con
       // 2. Regular link: [label](url)
       const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (linkMatch) {
-        const rawLabel = linkMatch[1].replace(/\*\*/g, '').trim();
+        const rawLabel = linkMatch[1].replace(/\\?\*/g, '').trim();
         const url = linkMatch[2].trim();
         const isInternal = url.startsWith('/');
         if (isInternal) {
@@ -89,7 +121,7 @@ const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ con
       if (boldMatch) {
         return (
           <strong key={`b-${idx}`} className="font-semibold text-stone-900">
-            {boldMatch[1]}
+            {boldMatch[1].replace(/\\/g, '')}
           </strong>
         );
       }
@@ -99,18 +131,21 @@ const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ con
       if (italicMatch) {
         return (
           <em key={`i-${idx}`} className="italic text-stone-700">
-            {italicMatch[1]}
+            {italicMatch[1].replace(/\\/g, '')}
           </em>
         );
       }
 
-      // 5. Plain text: strip any accidental orphan ** or markdown markers so no literal ** is displayed
-      const cleaned = token.replace(/\*\*/g, '');
+      // 5. Plain text: strip any accidental orphan asterisks, backslashes, or standalone svg tokens
+      if (token.trim().toLowerCase() === 'svg' || /^<\/?svg[^>]*>$/i.test(token.trim())) {
+        return null;
+      }
+      const cleaned = token.replace(/\\?\*+/g, '').replace(/\\/g, '');
       return <span key={`t-${idx}`}>{cleaned}</span>;
     });
   };
 
-  const lines = content.split('\n');
+  const lines = sanitized.split('\n');
   const elements: React.ReactNode[] = [];
   let currentList: React.ReactNode[] = [];
 
@@ -127,6 +162,11 @@ const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ con
 
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
+
+    // Skip standalone svg labels or stray SVG tags
+    if (trimmed.toLowerCase() === 'svg' || /^<\/?svg[^>]*>$/i.test(trimmed)) {
+      return;
+    }
 
     // Headings
     if (trimmed.startsWith('#### ')) {

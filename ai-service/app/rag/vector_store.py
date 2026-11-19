@@ -72,15 +72,41 @@ class VectorStore:
             conn = self._get_connection()
             vec_str = "[" + ",".join(str(x) for x in query_vector) + "]"
 
+            # Normalize common domain typos and spelling mistakes in query text
+            normalized_text = query_text.lower()
+            typo_subs = [
+                (r'\b(material|materiel|martail|maritial|matial)\s+arts?\b', 'martial arts'),
+                (r'\b(material|materiel|martail|maritial|matial)\b', 'martial'),
+                (r'\b(silambattam|silampam)\b', 'silambam'),
+                (r'\b(adimuraii|adi\s+murai)\b', 'adimurai'),
+                (r'\b(kuthuvarisai|kuthu\s+varisa)\b', 'kuthu varisai'),
+                (r'\b(varmakalai|varma\s+kalai)\b', 'varma kalai'),
+                (r'\b(paraiyattam|parai\s+atam)\b', 'parai attam'),
+                (r'\b(karakattam|karagam)\b', 'karagattam'),
+                (r'\b(tanjore)\b', 'thanjavur'),
+            ]
+            for pat, repl in typo_subs:
+                normalized_text = re.sub(pat, repl, normalized_text)
+
             # Extract distinct content keywords (length > 1, not stopword)
-            words = re.findall(r'[\w\u0B80-\u0BFF]+', query_text.lower())
+            words = re.findall(r'[\w\u0B80-\u0BFF]+', normalized_text)
             raw_keywords = [w for w in set(words) if w not in STOPWORDS and len(w) > 1]
 
             # Expand morphological variants / common art form aliases
             expanded_keywords = set(raw_keywords)
             for kw in raw_keywords:
-                if "silamb" in kw:
-                    expanded_keywords.update(["silambam", "silamb"])
+                if kw in ("martial", "combat"):
+                    expanded_keywords.update(["martial", "silambam", "adimurai", "kuthu", "combat"])
+                elif "silamb" in kw:
+                    expanded_keywords.update(["silambam", "silamb", "staff"])
+                elif "adimurai" in kw or "varm" in kw:
+                    expanded_keywords.update(["adimurai", "varmam", "varma", "combat"])
+                elif "kuthu" in kw or "varisai" in kw:
+                    expanded_keywords.update(["kuthu", "varisai", "silambam"])
+                elif "weapon" in kw:
+                    expanded_keywords.update(["weapon", "staff", "kambu", "surul", "maduvu"])
+                elif "stance" in kw or "subadu" in kw:
+                    expanded_keywords.update(["stance", "subadu", "kamai", "kuthirai", "nadi"])
                 elif "parai" in kw:
                     expanded_keywords.update(["parai"])
                 elif "karag" in kw:

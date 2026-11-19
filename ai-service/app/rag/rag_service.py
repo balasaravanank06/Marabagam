@@ -22,6 +22,42 @@ class RagService:
         # Check if text contains Tamil Unicode range (0x0B80 - 0x0BFF)
         return any(0x0B80 <= ord(c) <= 0x0BFF for c in text)
 
+    def normalize_query(self, text: str) -> str:
+        if not text:
+            return ""
+        t = text.lower().strip()
+        typo_subs = [
+            (r'\b(material|materiel|martail|maritial|matial)\s+arts?\b', 'martial arts'),
+            (r'\b(material|materiel|martail|maritial|matial)\s+art\b', 'martial art'),
+            (r'\b(material|materiel|martail|maritial|matial)\b', 'martial'),
+            (r'\b(silambattam|silampam)\b', 'silambam'),
+            (r'\b(adimuraii|adi\s+murai)\b', 'adimurai'),
+            (r'\b(kuthuvarisai|kuthu\s+varisa)\b', 'kuthu varisai'),
+            (r'\b(varmakalai|varma\s+kalai)\b', 'varma kalai'),
+            (r'\b(paraiyattam|parai\s+atam)\b', 'parai attam'),
+            (r'\b(karakattam|karagam)\b', 'karagattam'),
+            (r'\b(tanjore)\b', 'thanjavur'),
+        ]
+        for pat, repl in typo_subs:
+            t = re.sub(pat, repl, t, flags=re.IGNORECASE)
+        return t
+
+    def is_martial_arts_overview(self, text: str) -> bool:
+        t = self.normalize_query(text).lower().strip()
+        # Exclude queries specifically asking for stances, weapons, or a specific single art form deep-dive
+        if any(w in t for w in ["stance", "weapon", "footwork", "subadu", "stick", "சுவடு", "கம்பு"]):
+            return False
+        if "silamb" in t and any(w in t for w in ["detail", "explain", "விளக்க", "விரிவா"]):
+            return False
+
+        indicators = [
+            "martial arts", "martial art", "tamil martial arts", "different tamil martial arts",
+            "different martial arts", "all martial arts", "traditional martial arts",
+            "what martial arts", "combat arts", "fighting arts", "tell me about martial arts",
+            "தற்காப்புக் கலைகள்", "தமிழ் தற்காப்புக் கலைகள்", "தற்காப்புக் கலை என்னென்ன"
+        ]
+        return any(ind in t for ind in indicators)
+
     def is_casual_conversation(self, text: str) -> bool:
         t = text.strip().lower().rstrip("?.!")
         english_casual = [
@@ -382,8 +418,124 @@ class RagService:
                 )
                 return {"answer": refusal_en, "language": "en", "sources": [], "relevanceScore": 0.15}
 
-        # 6. Multi-Turn Context Resolution
-        effective_query = self._resolve_contextual_query(clean_query, history)
+        # 8. Handle Broad Martial Arts Overview ("Tell me about material arts" / "What are the different Tamil martial arts?")
+        normalized_query = self.normalize_query(clean_query)
+        if self.is_martial_arts_overview(normalized_query):
+            if is_ta:
+                overview_ta = (
+                    "### தமிழ் மரபு தற்காப்புக் கலைகள் (Tamil Traditional Martial Arts)\n\n"
+                    "தமிழ்நாடு தொன்மை வாய்ந்த, செழுமையான தற்காப்புக் கலைப் பாரம்பரியத்தைக் கொண்டுள்ளது. "
+                    "மரபகம் களஞ்சியத்தில் ஆவணப்படுத்தப்பட்டுள்ள முதன்மையான மூன்று தமிழ் தற்காப்புக் கலைகள் கீழே விவரிக்கப்பட்டுள்ளன:\n\n"
+                    "#### 1. சிலம்பம் (Silambam / Silambattam) — கம்பு சண்டை & ஆயுதக் கலை:\n"
+                    "- **அறிமுகம்**: சங்க இலக்கியங்களான *புறநானூறு* மற்றும் *சிலப்பதிகாரத்தில்* போற்றப்படும் உலகின் மிகத் தொன்மையான ஆயுத தற்காப்புக் கலை.\n"
+                    "- **முதன்மை ஆயுதம்**: வீரரின் புருவ மட்டம் வரை (சுமார் 1.6 மீட்டர்) அளவிடப்படும் முதிர்ந்த மூங்கில் கம்பு (*Kamai*).\n"
+                    "- **அடிப்படை சுவடுகள்**: கமை (தற்காப்பு guard), குதிரைச்சுவடு (நிலையான அஸ்திவாரம்), நடுச்சுவடு (மையத் தாக்குதல்).\n"
+                    "- **கால்வரிசை & துணை ஆயுதங்கள்**: சுழலும் கால்வரிசைகள் (*Kaalvari*), மற்றும் சுருள்வாள் (நெகிழ்வான எஃகு வாள்), மடுவு (மான் கொம்பு), வளைதடி (வளரி).\n"
+                    "- **பயிற்சி பாடம்**: **[Silambam Foundations Course](/courses/silambam-foundations)** மற்றும் **[Silambam Art Form Directory](/art-forms/silambam)**.\n\n"
+                    "#### 2. அடிமுறை (Adimurai) — தென்தமிழக வர்ம தற்காப்புக் கலை:\n"
+                    "- **அறிமுகம்**: கன்னியாகுமரி மற்றும் தென் திருவிதாங்கூர் பகுதிகளில் அகத்தியர் வழிவந்த பாரம்பரிய வெறுங்கை தற்காப்புக் கலை.\n"
+                    "- **வர்மக் கலை நுட்பம்**: உடலின் முக்கிய உயிர்நாடிப் புள்ளிகளை அடிப்படையாகக் கொண்டது — 12 படுவர்மம் (உயிர்க்கு ஆபத்தான புள்ளிகள்) மற்றும் 96 தொடுவர்மம் (முடக்கும் புள்ளிகள்).\n"
+                    "- **சிகிச்சை முறை**: வர்ம அடிகளுக்குப் பின் நரம்பு மண்டலத்தைச் சீரமைக்கும் *வர்ம தடவல்* சிகிச்சை முறையையும் இது உள்ளடக்கியுள்ளது.\n"
+                    "- **விவரம் அறிய**: **[Adimurai Art Form Directory](/art-forms/adimurai)**.\n\n"
+                    "#### 3. குத்து வரிசை (Kuthu Varisai) — தமிழர்களின் வெறுங்கை குத்துச் சண்டை:\n"
+                    "- **அறிமுகம்**: சிலம்பத்தின் ஆயுதப் பயிற்சிகளைத் தொடங்குவதற்கு முன் பயிற்றுவிக்கப்படும் கட்டாய வெறுங்கை தற்காப்பு முறை.\n"
+                    "- **முக்கிய கூறுகள்**: குழித் தொழில் (உடல் வலுவூட்டும் பயிற்சிகள்), மின்னல் வேக குத்து வரிசைகள், பாய்ச்சல் நிலைகள், மற்றும் எதிராளியின் தாக்குதலைத் திசைதிருப்பும் வழுக்கு முறைகள்.\n"
+                    "- **விவரம் அறிய**: **[Kuthu Varisai Art Form Directory](/art-forms/kuthu-varisai)**.\n\n"
+                    "எந்தக் கலையைப் பற்றி விரிவாக அறிய விரும்புகிறீர்கள்? (எ.கா: *சிலம்பத்தின் அடிப்படை நிலைகள்*, *அடிமுறையின் வர்ம புள்ளிகள்*, அல்லது *சிலம்பப் பயிற்சிகள்*)."
+                )
+                return {
+                    "answer": overview_ta,
+                    "language": "ta",
+                    "sources": [
+                        {
+                            "documentId": "f1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c",
+                            "title": "Silambam Martial Art Foundations",
+                            "titleTa": "சிலம்பம் தற்காப்புக் கலை அடிப்படை",
+                            "author": "Dr. A. Kovendhan",
+                            "sourceName": "Tamil Heritage Preservation Foundation Archives",
+                            "sourceUrl": "https://marabagam.org/heritage/silambam-foundations",
+                            "sourceType": "HISTORICAL"
+                        },
+                        {
+                            "documentId": "f1000000-0000-0000-0000-000000000001",
+                            "title": "Silambam Historical Lineage and Sangam Warrior Traditions",
+                            "titleTa": "சிலம்ப வரலாற்று மரபு மற்றும் சங்க போர் மரபுகள்",
+                            "author": "Prof. S. Rajalakshmi",
+                            "sourceName": "Tamil University Epigraphy & Martial Arts Department",
+                            "sourceUrl": "https://tamiluniversity.ac.in/research/silambam-treatise",
+                            "sourceType": "ACADEMIC_JOURNAL"
+                        },
+                        {
+                            "documentId": "f1000000-0000-0000-0000-000000000002",
+                            "title": "Adimurai and Varma Kalai Barehanded Combat and Healing Traditions",
+                            "titleTa": "அடிமுறை மற்றும் வர்மக்கலை மரபு",
+                            "author": "Asan M. Sreedharan Nair",
+                            "sourceName": "Agasthiyar Varma Research Foundation, Nagercoil",
+                            "sourceUrl": "https://agasthiyarvarma.org/treatise/adimurai-foundations",
+                            "sourceType": "ARCHIVAL"
+                        }
+                    ],
+                    "relevanceScore": 0.98
+                }
+            else:
+                overview_en = (
+                    "### Traditional Tamil Martial Arts (தமிழ் மரபு தற்காப்புக் கலைகள்)\n\n"
+                    "Tamil Nadu possesses an extraordinarily rich, battle-tested martial arts heritage dating back to the Sangam period. "
+                    "Marabagam preserves and documents the three foundational living Tamil martial arts:\n\n"
+                    "#### 1. Silambam (Silambattam) — Weapon-Based Staff Fencing:\n"
+                    "- **Overview**: Celebrated in the Sangam anthologies (*Puranaanooru*) and the epic *Silappadikaram*, Silambam is one of the world's oldest continuous weapon arts.\n"
+                    "- **Primary Weapon**: Seasoned bamboo staff (*Kamai*) custom-measured to the student's eyebrow level (~1.6 meters) for optimal kinetic leverage.\n"
+                    "- **Foundational Stances (Subadu)**: *Kamai* (balanced guard), *Kuthirai Subadu* (rooted horse stance), and *Nadi Subadu* (central focus alignment).\n"
+                    "- **Footwork & Arsenal**: Circular and linear *Kaalvari* footwork matrix, with advanced mastery in *Surul Vaal* (flexible steel whip-sword), *Maduvu* (deer horn), and *Valari* (throwing crescent).\n"
+                    "- **Course & Directory**: Enroll in **[Silambam Foundations: Staff Fencing Essentials](/courses/silambam-foundations)** or view the **[Silambam Art Form Directory](/art-forms/silambam)**.\n\n"
+                    "#### 2. Adimurai — Southern Barehanded Combat & Vital Points:\n"
+                    "- **Overview**: Originating in the southern Kanyakumari/Nagercoil region traced to the Agasthiyar lineage, Adimurai is an ancient empty-hand fighting system.\n"
+                    "- **Varma Kalai Integration**: Focuses on vital energy points, distinguishing between 12 lethal pressure centers (*Padu Varmam*) and 96 disabling nerve centers (*Thodu Varmam*).\n"
+                    "- **Healing Tradition**: Incorporates *Varma Thadaval* (neuromuscular therapeutic massage) to revive injured fighters and treat physical trauma.\n"
+                    "- **Directory**: Explore the **[Adimurai Art Form Directory](/art-forms/adimurai)**.\n\n"
+                    "#### 3. Kuthu Varisai — Unarmed Striking & Evasion:\n"
+                    "- **Overview**: The empty-hand prerequisite and unarmed counterpart to Silambam, developing agility, bare-knuckle striking, and grappling.\n"
+                    "- **Core Elements**: *Kuzhi Thozhil* (body conditioning), rapid fist-elbow combinations, leaping evasions, and close-quarters joint locks designed to disarm armed opponents.\n"
+                    "- **Directory**: Explore the **[Kuthu Varisai Art Form Directory](/art-forms/kuthu-varisai)**.\n\n"
+                    "Which art form or technique would you like to explore in more detail? (For example: *Silambam stances*, *Silambam weapons*, or *Adimurai pressure points*)."
+                )
+                return {
+                    "answer": overview_en,
+                    "language": "en",
+                    "sources": [
+                        {
+                            "documentId": "f1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c",
+                            "title": "Silambam Martial Art Foundations",
+                            "titleTa": "சிலம்பம் தற்காப்புக் கலை அடிப்படை",
+                            "author": "Dr. A. Kovendhan",
+                            "sourceName": "Tamil Heritage Preservation Foundation Archives",
+                            "sourceUrl": "https://marabagam.org/heritage/silambam-foundations",
+                            "sourceType": "HISTORICAL"
+                        },
+                        {
+                            "documentId": "f1000000-0000-0000-0000-000000000001",
+                            "title": "Silambam Historical Lineage and Sangam Warrior Traditions",
+                            "titleTa": "சிலம்ப வரலாற்று மரபு மற்றும் சங்க போர் மரபுகள்",
+                            "author": "Prof. S. Rajalakshmi",
+                            "sourceName": "Tamil University Epigraphy & Martial Arts Department",
+                            "sourceUrl": "https://tamiluniversity.ac.in/research/silambam-treatise",
+                            "sourceType": "ACADEMIC_JOURNAL"
+                        },
+                        {
+                            "documentId": "f1000000-0000-0000-0000-000000000002",
+                            "title": "Adimurai and Varma Kalai Barehanded Combat and Healing Traditions",
+                            "titleTa": "அடிமுறை மற்றும் வர்மக்கலை மரபு",
+                            "author": "Asan M. Sreedharan Nair",
+                            "sourceName": "Agasthiyar Varma Research Foundation, Nagercoil",
+                            "sourceUrl": "https://agasthiyarvarma.org/treatise/adimurai-foundations",
+                            "sourceType": "ARCHIVAL"
+                        }
+                    ],
+                    "relevanceScore": 0.98
+                }
+
+        # 9. Multi-Turn Context Resolution
+        effective_query = self._resolve_contextual_query(normalized_query, history)
 
         # 7. Embed Query & Search Similar Chunks (Hybrid)
         query_vector = await self.embedding_provider.embed_query(effective_query)

@@ -79,3 +79,26 @@ def test_out_of_scope_level_3():
     assert "Paris" in ans
     assert "Marabagam AI Cultural Guide" in ans
     assert "courses" in ans.lower()
+
+def test_material_arts_typo_and_overview():
+    res = asyncio.run(rag_service.query_cultural_guide("tell me about material arts"))
+    ans = res["answer"].lower()
+    assert "silambam" in ans
+    assert "adimurai" in ans
+    assert "kuthu varisai" in ans
+    assert len(res["sources"]) == 3
+    assert res["relevanceScore"] >= 0.95
+
+def test_different_tamil_martial_arts():
+    res = asyncio.run(rag_service.query_cultural_guide("What are the different Tamil martial arts?"))
+    ans = res["answer"].lower()
+    assert "silambam" in ans
+    assert "adimurai" in ans
+    assert "kuthu varisai" in ans
+    assert "/courses/silambam-foundations" in res["answer"]
+
+def test_unsupported_sangam_wrestlers_query():
+    res = asyncio.run(rag_service.query_cultural_guide("Tell me about the 17th-century royal diet plan for Sangam wrestlers in Madurai"))
+    ans = res["answer"].lower()
+    assert "not currently indexed" in ans or "not have sufficient verified" in ans
+    assert "art form directory" in ans or "/art-forms" in ans

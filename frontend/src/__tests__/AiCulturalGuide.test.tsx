@@ -104,4 +104,69 @@ describe('Phase 5 AI Cultural Guide UI', () => {
     expect(messageContainer?.textContent).not.toContain('**');
     expect(messageContainer?.textContent).toContain('Silambam Foundations Course (Beginner Level)');
   });
+
+  it('decodes HTML entities and strips escaped asterisks and standalone svg text', async () => {
+    (aiService.getConversations as any).mockResolvedValue({
+      content: [{ id: 'conv-2', title: 'Entity Test', updatedAt: new Date().toISOString() }],
+      totalPages: 1,
+      totalElements: 1,
+      size: 10,
+      number: 0,
+    });
+
+    (aiService.getConversationById as any).mockResolvedValue({
+      id: 'conv-2',
+      title: 'Entity Test',
+      messages: [
+        {
+          id: 'msg-2',
+          sender: 'ASSISTANT',
+          content: 'Here is \\*\\*Escaped Bold\\*\\* with entity &#x45;xample &amp; &#39;quotes&#39;.\nsvg\n<svg>stray</svg>\n- List item with **[Course Link](/courses/test)**',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    render(
+      <AuthProvider>
+        <BrowserRouter>
+          <AiCulturalGuidePage />
+        </BrowserRouter>
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Entity Test/i)).toBeInTheDocument();
+    });
+
+    screen.getByText(/Entity Test/i).click();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Escaped Bold/i)).toBeInTheDocument();
+    });
+
+    const textEl = screen.getByText(/Escaped Bold/i);
+    const container = textEl.closest('.max-w-\\[85\\%\\]');
+    const fullText = container?.textContent || '';
+
+    // Must decode &#x45; to E
+    expect(fullText).toContain('Example');
+    expect(fullText).not.toContain('&#x45;');
+
+    // Must decode &#39; to '
+    expect(fullText).toContain("'quotes'");
+    expect(fullText).not.toContain('&#39;');
+
+    // Must decode &amp; to &
+    expect(fullText).toContain('&');
+    expect(fullText).not.toContain('&amp;');
+
+    // Must not contain escaped \*\* or **
+    expect(fullText).not.toContain('\\*\\*');
+    expect(fullText).not.toContain('**');
+
+    // Standalone "svg" or "<svg>stray</svg>" line must be filtered
+    expect(fullText).not.toContain('<svg>');
+    expect(fullText).not.toMatch(/\bsvg\b/);
+  });
 });
