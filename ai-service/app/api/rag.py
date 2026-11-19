@@ -8,9 +8,14 @@ from app.rag.vector_store import vector_store
 
 router = APIRouter(prefix="/internal/v1/rag", tags=["Internal RAG Pipeline"])
 
+class ChatMessage(BaseModel):
+    sender: str
+    content: str
+
 class RagQueryRequest(BaseModel):
     query: str
     conversationId: Optional[str] = None
+    history: Optional[List[ChatMessage]] = None
 
 class DocumentIndexRequest(BaseModel):
     documentId: str
@@ -28,7 +33,10 @@ embedding_provider = get_embedding_provider()
 @router.post("/query")
 async def process_rag_query(req: RagQueryRequest):
     try:
-        res = await rag_service.query_cultural_guide(req.query, req.conversationId)
+        history_dicts = None
+        if req.history:
+            history_dicts = [{"sender": m.sender, "content": m.content} for m in req.history]
+        res = await rag_service.query_cultural_guide(req.query, req.conversationId, history_dicts)
         return res
     except Exception as e:
         raise HTTPException(

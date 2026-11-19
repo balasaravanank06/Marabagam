@@ -93,6 +93,19 @@ public class AiGuideService {
             ragRequest.put("query", req.getQuery());
             ragRequest.put("conversationId", conversation.getId().toString());
 
+            // Pass previous conversation turns for multi-turn conversational awareness
+            List<AiMessage> previousMessages = messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId());
+            List<Map<String, String>> historyList = new ArrayList<>();
+            int startIdx = Math.max(0, previousMessages.size() - 7);
+            for (int i = startIdx; i < previousMessages.size() - 1; i++) {
+                AiMessage m = previousMessages.get(i);
+                Map<String, String> hm = new HashMap<>();
+                hm.put("sender", m.getSender());
+                hm.put("content", m.getContent());
+                historyList.add(hm);
+            }
+            ragRequest.put("history", historyList);
+
             String url = aiServiceUrl + "/internal/v1/rag/query";
             ResponseEntity<Map> response = restTemplate.postForEntity(url, ragRequest, Map.class);
 

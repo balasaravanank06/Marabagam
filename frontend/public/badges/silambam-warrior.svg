@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGrad4" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#7c2d12"/>
+      <stop offset="55%" stop-color="#292524"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
+    </radialGradient>
+    <linearGradient id="bambooGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="40%" stop-color="#ca8a04"/>
+      <stop offset="80%" stop-color="#854d0e"/>
+      <stop offset="100%" stop-color="#451a03"/>
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="50%" stop-color="#b45309"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+    <linearGradient id="borderGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="50%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#7c2d12"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Ring -->
+  <circle cx="60" cy="60" r="54" fill="url(#bgGrad4)" stroke="url(#borderGrad4)" stroke-width="3.5" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.5))"/>
+  <circle cx="60" cy="60" r="47" fill="none" stroke="#ea580c" stroke-width="1" stroke-dasharray="4,2" opacity="0.6"/>
+
+  <!-- Crossed Silambam Bamboo Staffs -->
+  <g stroke="#0c0a09" stroke-width="0.8">
+    <!-- Staff 1: Top-Left to Bottom-Right -->
+    <rect x="-3" y="-46" width="6" height="92" rx="3" transform="translate(60,60) rotate(45)" fill="url(#bambooGrad)"/>
+    <!-- Bamboo Nodes on Staff 1 -->
+    <g transform="translate(60,60) rotate(45)">
+      <line x1="-3" y1="-26" x2="3" y2="-26" stroke="#451a03" stroke-width="1.5"/>
+      <line x1="-3" y1="-6" x2="3" y2="-6" stroke="#451a03" stroke-width="1.5"/>
+      <line x1="-3" y1="14" x2="3" y2="14" stroke="#451a03" stroke-width="1.5"/>
+      <line x1="-3" y1="34" x2="3" y2="34" stroke="#451a03" stroke-width="1.5"/>
+    </g>
+
+    <!-- Staff 2: Top-Right to Bottom-Left -->
+    <rect x="-3" y="-46" width="6" height="92" rx="3" transform="translate(60,60) rotate(-45)" fill="url(#bambooGrad)"/>
+    <!-- Bamboo Nodes on Staff 2 -->
+    <g transform="translate(60,60) rotate(-45)">
+      <line x1="-3" y1="-26" x2="3" y2="-26" stroke="#451a03" stroke-width="1.5"/>
+      <line x1="-3" y1="-6" x2="3" y2="-6" stroke="#451a03" stroke-width="1.5"/>
+      <line x1="-3" y1="14" x2="3" y2="14" stroke="#451a03" stroke-width="1.5"/>
+      <line x1="-3" y1="34" x2="3" y2="34" stroke="#451a03" stroke-width="1.5"/>
+    </g>
+  </g>
+
+  <!-- Central Tamil Warrior Shield / Parichai -->
+  <g transform="translate(60,60)">
+    <circle cx="0" cy="0" r="22" fill="url(#shieldGrad)" stroke="#fde047" stroke-width="2.5" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.6))"/>
+    <circle cx="0" cy="0" r="16" fill="none" stroke="#fef08a" stroke-width="1" stroke-dasharray="2,2"/>
+    <!-- Boss / Center Umbo -->
+    <circle cx="0" cy="0" r="7" fill="#78350f" stroke="#fde047" stroke-width="1.5"/>
+    <circle cx="0" cy="0" r="2.5" fill="#fde047"/>
+    
+    <!-- 4 Cardinal Shield Studs -->
+    <circle cx="0" cy="-12" r="2" fill="#fef08a"/>
+    <circle cx="0" cy="12" r="2" fill="#fef08a"/>
+    <circle cx="-12" cy="0" r="2" fill="#fef08a"/>
+    <circle cx="12" cy="0" r="2" fill="#fef08a"/>
+  </g>
+</svg>

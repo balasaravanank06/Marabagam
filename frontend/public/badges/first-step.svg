@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGrad1" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#451a03"/>
+      <stop offset="60%" stop-color="#1c1917"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
+    </radialGradient>
+    <linearGradient id="goldGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="45%" stop-color="#eab308"/>
+      <stop offset="80%" stop-color="#ca8a04"/>
+      <stop offset="100%" stop-color="#854d0e"/>
+    </linearGradient>
+    <linearGradient id="borderGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#b45309"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+    <filter id="glow1" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer Ring -->
+  <circle cx="60" cy="60" r="54" fill="url(#bgGrad1)" stroke="url(#borderGrad1)" stroke-width="3.5" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.5))"/>
+  <circle cx="60" cy="60" r="47" fill="none" stroke="#d97706" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+
+  <!-- Stepping / Footprint Motif -->
+  <g transform="translate(60,60) scale(1.15)">
+    <!-- Path Dots -->
+    <circle cx="-16" cy="18" r="3" fill="#ca8a04" opacity="0.5"/>
+    <circle cx="-8" cy="8" r="3.5" fill="#eab308" opacity="0.7"/>
+    <circle cx="4" cy="-2" r="4" fill="#fde047" opacity="0.9"/>
+    
+    <!-- Footprint / Slipper Silhouette Symbol -->
+    <path d="M-10,6 C-14,0 -16,-10 -10,-18 C-6,-24 4,-24 8,-18 C12,-12 14,-2 10,8 C7,14 -4,14 -10,6 Z" fill="url(#goldGrad1)" filter="url(#glow1)"/>
+    <ellipse cx="-1" cy="-14" rx="4" ry="5" fill="#78350f" opacity="0.3"/>
+    
+    <!-- Radiant Star on Destination -->
+    <path d="M12,-16 L14,-10 L20,-8 L14,-6 L12,0 L10,-6 L4,-8 L10,-10 Z" fill="#ffffff" filter="drop-shadow(0 0 2px #fde047)"/>
+  </g>
+  
+  <!-- Tamil Heritage Ribbon Base -->
+  <path d="M34,92 L60,86 L86,92 L80,98 L60,94 L40,98 Z" fill="#78350f" stroke="#d97706" stroke-width="1"/>
+</svg>

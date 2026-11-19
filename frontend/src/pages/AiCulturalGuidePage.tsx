@@ -1,8 +1,158 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Send, Bot, User as UserIcon, Trash2, BookOpen, ExternalLink, Sparkles, AlertCircle, RefreshCw, MessageSquarePlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { aiService } from '../services/aiService';
 import { AiConversation, AiMessage } from '../types/ai';
+
+// Custom Markdown Renderer for rich heritage responses without extra heavy dependencies
+const FormattedContent: React.FC<{ content: string; isUser?: boolean }> = ({ content, isUser }) => {
+  if (isUser) {
+    return <p className="whitespace-pre-wrap">{content}</p>;
+  }
+
+  const renderInlineFormatted = (text: string) => {
+    // Matches links: [label](url), bold: **bold**, and italic: *italic*
+    const parts: React.ReactNode[] = [];
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let lastIdx = 0;
+    let match;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+      if (match.index > lastIdx) {
+        parts.push(renderBoldItalic(text.slice(lastIdx, match.index), `sub-${lastIdx}`));
+      }
+      const label = match[1];
+      const url = match[2];
+      const isInternal = url.startsWith('/');
+      if (isInternal) {
+        parts.push(
+          <Link
+            key={`link-${match.index}`}
+            to={url}
+            className="text-amber-700 hover:text-amber-900 font-semibold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
+          >
+            {label}
+          </Link>
+        );
+      } else {
+        parts.push(
+          <a
+            key={`link-${match.index}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-700 hover:text-amber-900 font-semibold underline underline-offset-2 transition-colors inline-flex items-center gap-0.5"
+          >
+            {label} <ExternalLink className="w-3 h-3 inline" />
+          </a>
+        );
+      }
+      lastIdx = linkRegex.lastIndex;
+    }
+
+    if (lastIdx < text.length) {
+      parts.push(renderBoldItalic(text.slice(lastIdx), `sub-${lastIdx}`));
+    }
+
+    return parts;
+  };
+
+  const renderBoldItalic = (text: string, keyPrefix: string) => {
+    // Handle **bold** and *italic*
+    const boldTokens = text.split(/(\*\*[^*]+\*\*)/g);
+    return boldTokens.map((token, i) => {
+      if (token.startsWith('**') && token.endsWith('**')) {
+        return (
+          <strong key={`${keyPrefix}-b-${i}`} className="font-semibold text-stone-900">
+            {token.slice(2, -2)}
+          </strong>
+        );
+      }
+      const italicTokens = token.split(/(\*[^*]+\*)/g);
+      return italicTokens.map((it, j) => {
+        if (it.startsWith('*') && it.endsWith('*')) {
+          return (
+            <em key={`${keyPrefix}-i-${i}-${j}`} className="italic text-stone-700">
+              {it.slice(1, -1)}
+            </em>
+          );
+        }
+        return it;
+      });
+    });
+  };
+
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentList: React.ReactNode[] = [];
+
+  const flushList = (key: string) => {
+    if (currentList.length > 0) {
+      elements.push(
+        <ul key={key} className="space-y-1.5 my-2.5 pl-1">
+          {currentList}
+        </ul>
+      );
+      currentList = [];
+    }
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+
+    // Headings
+    if (trimmed.startsWith('### ')) {
+      flushList(`flush-${idx}`);
+      elements.push(
+        <h4 key={`h4-${idx}`} className="font-serif font-bold text-amber-950 text-sm sm:text-base mt-3 mb-1.5 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 inline-block"></span>
+          {renderInlineFormatted(trimmed.slice(4))}
+        </h4>
+      );
+    } else if (trimmed.startsWith('## ')) {
+      flushList(`flush-${idx}`);
+      elements.push(
+        <h3 key={`h3-${idx}`} className="font-serif font-bold text-amber-950 text-base sm:text-lg mt-3 mb-1.5">
+          {renderInlineFormatted(trimmed.slice(3))}
+        </h3>
+      );
+    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      currentList.push(
+        <li key={`li-${idx}`} className="flex items-start gap-2 text-stone-700 text-sm leading-relaxed">
+          <span className="text-amber-600 font-bold mt-1 text-xs">•</span>
+          <span className="flex-1">{renderInlineFormatted(trimmed.slice(2))}</span>
+        </li>
+      );
+    } else if (/^\d+\.\s/.test(trimmed)) {
+      flushList(`flush-${idx}`);
+      const numMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+      if (numMatch) {
+        elements.push(
+          <div key={`num-${idx}`} className="flex items-start gap-2 my-1.5 text-stone-700 text-sm leading-relaxed">
+            <span className="font-bold text-amber-700 text-xs mt-0.5 bg-amber-100 rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
+              {numMatch[1]}
+            </span>
+            <span className="flex-1">{renderInlineFormatted(numMatch[2])}</span>
+          </div>
+        );
+      }
+    } else if (trimmed === '') {
+      flushList(`flush-${idx}`);
+      elements.push(<div key={`sp-${idx}`} className="h-2" />);
+    } else {
+      flushList(`flush-${idx}`);
+      elements.push(
+        <p key={`p-${idx}`} className="text-stone-700 text-sm leading-relaxed my-1">
+          {renderInlineFormatted(trimmed)}
+        </p>
+      );
+    }
+  });
+
+  flushList('flush-final');
+  return <div className="space-y-1">{elements}</div>;
+};
 
 export const AiCulturalGuidePage: React.FC = () => {
   const { user } = useAuth();
@@ -13,6 +163,7 @@ export const AiCulturalGuidePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -112,10 +263,21 @@ export const AiCulturalGuidePage: React.FC = () => {
     }
   }, [messages, loading]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   const quickPrompts = [
     { title: 'What is Silambam?', query: 'What is Silambam and what is its primary weapon?' },
-    { title: 'Footwork Stances', query: 'What are the primary footwork stances in Silambam?' },
-    { title: 'சிலம்பம் வரலாறு', query: 'சிலம்பம் தற்காப்புக் கலையின் வரலாறு மற்றும் சிறப்புகள் யாவை?' },
+    { title: 'Footwork Stances', query: 'What are the basic stances in Silambam?' },
+    { title: 'Silambam Courses', query: 'Which course on Marabagam covers Silambam?' },
+    { title: 'Parai Attam Significance', query: 'Tell me about Parai Attam and its traditional significance' },
+    { title: 'Thanjavur Painting Materials', query: 'What materials are used to make a Thanjavur Painting?' },
+    { title: 'Kanchipuram Silk Differences', query: 'How is Kanchipuram silk different from other silk varieties?' },
+    { title: 'வணக்கம் (Tamil Greeting)', query: 'வணக்கம்' },
   ];
 
   return (
@@ -130,19 +292,19 @@ export const AiCulturalGuidePage: React.FC = () => {
             Marabagam AI Cultural Guide
           </h1>
           <p className="text-amber-200/90 text-sm sm:text-base leading-relaxed">
-            Ask questions about Tamil traditional arts, history, stances, and heritage. Every response is strictly grounded in verified digital archives with full source attribution.
+            Your conversational companion for Tamil traditional arts, martial lineages, classical music, and heritage crafts. Every response is strictly grounded in verified digital archives with full source attribution.
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar - Conversation History */}
-        <div className="lg:col-span-1 bg-white rounded-2xl p-4 shadow-sm border border-stone-200 flex flex-col h-[650px]">
+        <div className="lg:col-span-1 bg-white rounded-2xl p-4 shadow-sm border border-stone-200 flex flex-col h-[680px]">
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition-colors mb-4 shadow-sm"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition-colors mb-4 shadow-sm text-sm"
           >
-            <MessageSquarePlus className="w-5 h-5" /> New Conversation
+            <MessageSquarePlus className="w-4 h-4" /> New Conversation
           </button>
 
           <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3 px-2">
@@ -171,7 +333,7 @@ export const AiCulturalGuidePage: React.FC = () => {
                     className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-600 transition-opacity p-1 rounded hover:bg-stone-100"
                     title="Delete Conversation"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))
@@ -180,29 +342,29 @@ export const AiCulturalGuidePage: React.FC = () => {
         </div>
 
         {/* Main Chat Panel */}
-        <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-stone-200 flex flex-col h-[650px] overflow-hidden">
+        <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-stone-200 flex flex-col h-[680px] overflow-hidden">
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 max-w-lg mx-auto">
-                <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-4">
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 max-w-xl mx-auto">
+                <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-4 shadow-sm">
                   <Bot className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-stone-900 mb-2 font-serif">Welcome to AI Cultural Guide</h3>
-                <p className="text-sm text-stone-600 mb-6">
-                  Select a topic or type a question below to start exploring Tamil heritage.
+                <h3 className="text-xl font-bold text-stone-900 mb-2 font-serif">Welcome to AI Cultural Guide</h3>
+                <p className="text-sm text-stone-600 mb-6 leading-relaxed">
+                  Ask questions about Tamil traditional arts, weapons, footwork stances, temple crafts, and curated courses. Choose a prompt or type below:
                 </p>
 
                 {/* Quick Prompts */}
-                <div className="w-full space-y-2">
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
                   {quickPrompts.map((prompt, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSend(prompt.query)}
-                      className="w-full text-left p-3 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all text-xs sm:text-sm text-stone-700 flex items-center justify-between group"
+                      className="p-3 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all text-xs sm:text-sm text-stone-700 flex items-center justify-between group shadow-2xs"
                     >
-                      <span>{prompt.title}</span>
-                      <Sparkles className="w-4 h-4 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="font-medium truncate pr-2">{prompt.title}</span>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -214,31 +376,31 @@ export const AiCulturalGuidePage: React.FC = () => {
                   className={`flex gap-3 sm:gap-4 ${msg.sender === 'USER' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold ${
+                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold shadow-sm ${
                       msg.sender === 'USER' ? 'bg-stone-800 text-white' : 'bg-amber-600 text-white'
                     }`}
                   >
                     {msg.sender === 'USER' ? <UserIcon className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
                   </div>
 
-                  <div className={`max-w-[80%] rounded-2xl p-4 text-sm leading-relaxed ${
+                  <div className={`max-w-[85%] rounded-2xl p-4 sm:p-5 text-sm leading-relaxed shadow-2xs ${
                     msg.sender === 'USER'
-                      ? 'bg-stone-800 text-white rounded-tr-none'
-                      : 'bg-stone-50 border border-stone-200 text-stone-800 rounded-tl-none'
+                      ? 'bg-stone-900 text-white rounded-tr-none'
+                      : 'bg-stone-50 border border-stone-200/90 text-stone-800 rounded-tl-none'
                   }`}>
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <FormattedContent content={msg.content} isUser={msg.sender === 'USER'} />
 
                     {/* Sources Attribution */}
                     {msg.sources && msg.sources.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-stone-200/80">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900 mb-2">
-                          <BookOpen className="w-3.5 h-3.5" /> Cited Heritage Sources:
+                          <BookOpen className="w-3.5 h-3.5 text-amber-700" /> Cited Heritage Sources:
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {msg.sources.map((src, idx) => (
-                            <div key={idx} className="bg-white p-2.5 rounded-lg border border-stone-200 text-xs">
+                            <div key={idx} className="bg-white p-2.5 rounded-xl border border-stone-200 text-xs shadow-2xs">
                               <div className="font-semibold text-stone-900 truncate">{src.title}</div>
-                              {src.author && <div className="text-stone-500 text-[11px]">Author: {src.author}</div>}
+                              {src.author && <div className="text-stone-500 text-[11px] truncate">Author: {src.author}</div>}
                               <div className="text-stone-500 text-[11px] truncate">{src.sourceName}</div>
                               {src.sourceUrl && (
                                 <a
@@ -263,7 +425,7 @@ export const AiCulturalGuidePage: React.FC = () => {
             {/* Shimmer Loading */}
             {loading && (
               <div className="flex gap-4 items-start">
-                <div className="w-9 h-9 rounded-full bg-amber-600 text-white flex items-center justify-center">
+                <div className="w-9 h-9 rounded-full bg-amber-600 text-white flex items-center justify-center shadow-sm">
                   <Bot className="w-5 h-5 animate-pulse" />
                 </div>
                 <div className="bg-stone-50 border border-stone-200 p-4 rounded-2xl rounded-tl-none text-xs text-stone-500 flex items-center gap-2">
@@ -284,26 +446,28 @@ export const AiCulturalGuidePage: React.FC = () => {
           )}
 
           {/* Input Bar */}
-          <div className="p-4 border-t border-stone-200 bg-white">
+          <div className="p-3 sm:p-4 border-t border-stone-200 bg-white">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="flex gap-2"
+              className="flex items-end gap-2"
             >
-              <input
-                type="text"
+              <textarea
+                ref={textareaRef}
+                rows={1}
                 value={inputQuery}
                 onChange={(e) => setInputQuery(e.target.value)}
-                placeholder="Ask about Tamil art forms, history, stances, or traditional masters..."
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about Tamil art forms, history, stances, or courses... (Press Enter to send)"
                 disabled={loading}
-                className="flex-1 px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm outline-none disabled:bg-stone-100"
+                className="flex-1 px-4 py-3 border border-stone-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm outline-none resize-none max-h-32 disabled:bg-stone-100 leading-normal"
               />
               <button
                 type="submit"
                 disabled={loading || !inputQuery.trim()}
-                className="px-5 py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-medium rounded-xl transition-colors flex items-center gap-2 text-sm shadow-sm"
+                className="px-5 py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-medium rounded-xl transition-colors flex items-center gap-2 text-sm shadow-sm flex-shrink-0 h-[46px]"
               >
                 <span>Send</span> <Send className="w-4 h-4" />
               </button>

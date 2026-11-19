@@ -344,7 +344,7 @@ export const AchievementsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {profile.badges && profile.badges.length > 0 ? (
                 profile.badges.map((b) => (
-                  <BadgeCard key={b.id || b.code} badge={b} />
+                  <BadgeCard key={b.id || b.code} badge={b} language={isTa ? 'ta' : 'en'} />
                 ))
               ) : (
                 <div className="col-span-full p-8 text-center bg-slate-900/40 rounded-xl border border-slate-800 text-slate-500 text-xs">
