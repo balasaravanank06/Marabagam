@@ -11,6 +11,10 @@ public class GamificationProfileDto {
     private Integer longestStreak;
     private Integer totalBadges;
     private List<BadgeDto> badges;
+    private Integer completedCoursesCount;
+    private Integer quizzesPassedCount;
+    private Integer leaderboardRank;
+    private List<RecentActivityDto> recentActivities;
 
     public GamificationProfileDto() {
     }
@@ -77,5 +81,37 @@ public class GamificationProfileDto {
 
     public void setBadges(List<BadgeDto> badges) {
         this.badges = badges;
+    }
+
+    public Integer getCompletedCoursesCount() {
+        return completedCoursesCount;
+    }
+
+    public void setCompletedCoursesCount(Integer completedCoursesCount) {
+        this.completedCoursesCount = completedCoursesCount;
+    }
+
+    public Integer getQuizzesPassedCount() {
+        return quizzesPassedCount;
+    }
+
+    public void setQuizzesPassedCount(Integer quizzesPassedCount) {
+        this.quizzesPassedCount = quizzesPassedCount;
+    }
+
+    public Integer getLeaderboardRank() {
+        return leaderboardRank;
+    }
+
+    public void setLeaderboardRank(Integer leaderboardRank) {
+        this.leaderboardRank = leaderboardRank;
+    }
+
+    public List<RecentActivityDto> getRecentActivities() {
+        return recentActivities;
+    }
+
+    public void setRecentActivities(List<RecentActivityDto> recentActivities) {
+        this.recentActivities = recentActivities;
     }
 }

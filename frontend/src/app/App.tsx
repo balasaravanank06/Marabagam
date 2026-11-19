@@ -62,6 +62,14 @@ export const App: React.FC = () => {
               }
             />
             <Route
+              path="/achievements"
+              element={
+                <ProtectedRoute>
+                  <AchievementsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/my-achievements"
               element={
                 <ProtectedRoute>
@@ -72,6 +80,14 @@ export const App: React.FC = () => {
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route
               path="/certificates"
+              element={
+                <ProtectedRoute>
+                  <CertificatesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-certificates"
               element={
                 <ProtectedRoute>
                   <CertificatesPage />

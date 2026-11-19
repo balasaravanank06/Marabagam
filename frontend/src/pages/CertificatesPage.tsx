@@ -14,6 +14,7 @@ export const CertificatesPage: React.FC = () => {
   const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthError, setIsAuthError] = useState<boolean>(false);
 
   useEffect(() => {
     fetchCertificates();
@@ -22,6 +23,7 @@ export const CertificatesPage: React.FC = () => {
   const fetchCertificates = async () => {
     setLoading(true);
     setError(null);
+    setIsAuthError(false);
     try {
       const list = await certificateService.getUserCertificates();
       setCertificates(list || []);
@@ -31,6 +33,9 @@ export const CertificatesPage: React.FC = () => {
         setSelectedCert(null);
       }
     } catch (err: any) {
+      if (err?.response?.status === 401) {
+        setIsAuthError(true);
+      }
       const errorMsg =
         err?.response?.data?.message ||
         err?.message ||
@@ -80,8 +85,32 @@ export const CertificatesPage: React.FC = () => {
         </Link>
       </header>
 
-      {/* Actual API failure */}
-      {error ? (
+      {/* Unauthenticated / Session Expired State */}
+      {isAuthError ? (
+        <div className="bg-slate-900/80 border border-amber-500/30 p-8 rounded-2xl text-center space-y-4 max-w-xl mx-auto shadow-2xl backdrop-blur-md">
+          <div className="w-14 h-14 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/30">
+            <Award className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-white">
+              {isTa ? 'உள்நுழைவு தேவைப்படுகிறது' : 'Authentication Required'}
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300">
+              {isTa
+                ? 'உங்கள் சரிபார்க்கப்பட்ட டிஜிட்டல் சான்றிதழ்களைக் காண உள்நுழையவும்.'
+                : 'Please sign in to view and download your verifiable Tamil heritage certificates.'}
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              to="/login"
+              className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 text-slate-950 font-bold hover:brightness-110 shadow-lg shadow-amber-500/20 transition-all text-xs"
+            >
+              <span>{isTa ? 'உள்நுழைக (Sign In)' : 'Sign In to Marabagam'}</span>
+            </Link>
+          </div>
+        </div>
+      ) : error ? (
         <div className="bg-rose-950/60 border border-rose-500/50 p-6 rounded-2xl text-center space-y-4 shadow-xl">
           <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />

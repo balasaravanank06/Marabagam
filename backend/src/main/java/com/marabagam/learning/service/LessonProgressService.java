@@ -11,6 +11,8 @@ import com.marabagam.learning.repository.EnrollmentRepository;
 import com.marabagam.learning.repository.LessonProgressRepository;
 import com.marabagam.learning.repository.LessonRepository;
 import com.marabagam.user.domain.User;
+import com.marabagam.gamification.domain.SourceActivity;
+import com.marabagam.gamification.service.GamificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,9 @@ public class LessonProgressService {
 
     @Autowired
     private EnrollmentRepository enrollmentRepository;
+
+    @Autowired
+    private GamificationService gamificationService;
 
     @Transactional
     public LessonProgressDto updateLessonProgress(UUID lessonId, UpdateLessonProgressRequestDto request, User currentUser) {
@@ -89,6 +94,12 @@ public class LessonProgressService {
             if (progress.getCompletedAt() == null) {
                 progress.setCompletedAt(Instant.now());
             }
+            gamificationService.awardXp(
+                currentUser,
+                100,
+                SourceActivity.LESSON_COMPLETED,
+                "LESSON_COMPLETE:" + currentUser.getId() + ":" + lesson.getId()
+            );
         } else {
             progress.setCompleted(false);
         }

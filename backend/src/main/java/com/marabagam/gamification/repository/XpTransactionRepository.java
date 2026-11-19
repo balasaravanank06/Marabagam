@@ -16,6 +16,8 @@ import java.util.UUID;
 public interface XpTransactionRepository extends JpaRepository<XpTransaction, UUID> {
     Optional<XpTransaction> findByIdempotencyKey(String idempotencyKey);
     boolean existsByIdempotencyKey(String idempotencyKey);
+    boolean existsByIdempotencyKeyStartingWith(String prefix);
+    List<XpTransaction> findTop10ByUserIdOrderByCreatedAtDesc(UUID userId);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM XpTransaction t WHERE t.user.id = :userId")
     int sumAmountByUserId(@Param("userId") UUID userId);

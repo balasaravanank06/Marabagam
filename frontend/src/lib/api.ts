@@ -21,11 +21,15 @@ export const aiClient = axios.create({
   timeout: 10000,
 });
 
-// In-memory access token storage (fallback to sessionStorage for tab resilience)
+// In-memory access token storage (fallback to sessionStorage and localStorage for tab & window resilience)
 let memoryAccessToken: string | null = null;
 
 export const getAccessToken = (): string | null => {
-  return memoryAccessToken || sessionStorage.getItem('marabagam_access_token');
+  return (
+    memoryAccessToken ||
+    sessionStorage.getItem('marabagam_access_token') ||
+    localStorage.getItem('marabagam_access_token')
+  );
 };
 
 export const setAuthTokens = (tokens: AuthTokens | AuthResponse | { accessToken: string } | string) => {
@@ -33,6 +37,7 @@ export const setAuthTokens = (tokens: AuthTokens | AuthResponse | { accessToken:
   if (token) {
     memoryAccessToken = token;
     sessionStorage.setItem('marabagam_access_token', token);
+    localStorage.setItem('marabagam_access_token', token);
   }
 };
 

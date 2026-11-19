@@ -41,6 +41,12 @@ public class GamificationService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private com.marabagam.certificate.repository.CertificateRepository certificateRepository;
+
+    @Autowired
+    private com.marabagam.quiz.repository.QuizAttemptRepository quizAttemptRepository;
+
     @Transactional
     public boolean awardXp(User user, int amount, SourceActivity activity, String idempotencyKey) {
         if (amount <= 0 || idempotencyKey == null || idempotencyKey.isBlank()) {
@@ -136,11 +142,20 @@ public class GamificationService {
             case "FIRST_STEP":
                 return xpTransactionRepository.sumAmountByUserId(user.getId()) > 0;
             case "FIRST_QUIZ_PASS":
-                return xpTransactionRepository.existsByIdempotencyKey("QUIZ_PASS_FIRST:" + user.getId() + ":*") ||
+                return xpTransactionRepository.existsByIdempotencyKeyStartingWith("QUIZ_PASS_FIRST:" + user.getId()) ||
+                       xpTransactionRepository.existsByIdempotencyKeyStartingWith("QUIZ_PASS_") ||
+                       quizAttemptRepository.countByUserIdAndPassedTrue(user.getId()) > 0 ||
                        userBadgeRepository.countByUserId(user.getId()) > 0;
+            case "PERFECT_SCORE":
+                return xpTransactionRepository.existsByIdempotencyKeyStartingWith("QUIZ_PERFECT:" + user.getId());
+            case "SILAMBAM_WARRIOR":
+                return certificateRepository.findByUserId(user.getId()).stream()
+                        .anyMatch(c -> c.getCourseTitleSnapshot() != null && c.getCourseTitleSnapshot().toLowerCase().contains("silambam"));
             case "WEEKLY_STREAK_7":
                 Optional<UserStreak> st = userStreakRepository.findByUserId(user.getId());
                 return st.isPresent() && st.get().getLongestStreak() >= 7;
+            case "HERITAGE_GUARDIAN_3":
+                return certificateRepository.countByUserId(user.getId()) >= 3;
             default:
                 return false;
         }
@@ -200,6 +215,36 @@ public class GamificationService {
         profile.setLongestStreak(streak.getLongestStreak());
         profile.setTotalBadges(userBadges.size());
         profile.setBadges(badgeDtos);
+
+        int completedCourses = certificateRepository.countByUserId(userId);
+        int quizzesPassed = quizAttemptRepository.countByUserIdAndPassedTrue(userId);
+        profile.setCompletedCoursesCount(completedCourses);
+        profile.setQuizzesPassedCount(quizzesPassed);
+
+        // Find global leaderboard rank
+        List<Object[]> globalRows = xpTransactionRepository.findGlobalLeaderboard(PageRequest.of(0, 100));
+        Integer userRank = null;
+        for (int i = 0; i < globalRows.size(); i++) {
+            UUID rowUserId = (UUID) globalRows.get(i)[0];
+            if (rowUserId.equals(userId)) {
+                userRank = i + 1;
+                break;
+            }
+        }
+        profile.setLeaderboardRank(userRank);
+
+        // Recent XP activity
+        List<XpTransaction> recentTxList = xpTransactionRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId);
+        List<com.marabagam.gamification.dto.RecentActivityDto> activityDtos = new ArrayList<>();
+        for (XpTransaction tx : recentTxList) {
+            activityDtos.add(new com.marabagam.gamification.dto.RecentActivityDto(
+                    tx.getId(),
+                    tx.getAmount(),
+                    tx.getSourceActivity() != null ? tx.getSourceActivity().name() : "XP_AWARDED",
+                    tx.getCreatedAt()
+            ));
+        }
+        profile.setRecentActivities(activityDtos);
 
         return profile;
     }

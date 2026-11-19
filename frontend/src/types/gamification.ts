@@ -11,6 +11,13 @@ export interface Badge {
   awardedAt?: string;
 }
 
+export interface RecentActivity {
+  id: string;
+  amount: number;
+  sourceActivity: string;
+  createdAt: string;
+}
+
 export interface GamificationProfile {
   totalXp: number;
   level: number;
@@ -20,6 +27,10 @@ export interface GamificationProfile {
   longestStreak: number;
   totalBadges: number;
   badges: Badge[];
+  completedCoursesCount?: number;
+  quizzesPassedCount?: number;
+  leaderboardRank?: number | null;
+  recentActivities?: RecentActivity[];
 }
 
 export interface LeaderboardEntry {

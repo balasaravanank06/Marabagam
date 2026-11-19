@@ -24,6 +24,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.Year;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +60,7 @@ public class CertificateService {
         }
 
         String certificateCode = generateSecureCertificateCode();
-        Instant issuedAt = Instant.now();
+        Instant issuedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
         String canonicalPayload = buildCanonicalPayload(
                 certificateCode,
@@ -107,11 +108,19 @@ public class CertificateService {
 
         String expectedSignature = computeHmacSha256(canonicalPayload, certificateSecret);
 
-        // Constant-time comparison to prevent timing attacks
-        boolean isAuthentic = MessageDigest.isEqual(
+        // Constant-time comparison to prevent timing attacks, checking normalized payload with second precision
+        boolean isAuthentic = (MessageDigest.isEqual(
                 expectedSignature.getBytes(StandardCharsets.UTF_8),
                 cert.getSignatureHmac().getBytes(StandardCharsets.UTF_8)
-        ) && cert.getStatus() == CertificateStatus.ISSUED;
+        ) || MessageDigest.isEqual(
+                computeHmacSha256(
+                        cert.getCertificateCode() + "|" + cert.getUser().getId() + "|" + cert.getCourse().getId() + "|" +
+                        cert.getRecipientNameSnapshot() + "|" + cert.getCourseTitleSnapshot() + "|" +
+                        cert.getFinalScorePercentage() + "|" + cert.getIssuedAt().toString(),
+                        certificateSecret
+                ).getBytes(StandardCharsets.UTF_8),
+                cert.getSignatureHmac().getBytes(StandardCharsets.UTF_8)
+        )) && cert.getStatus() == CertificateStatus.ISSUED;
 
         VerificationResponseDto response = new VerificationResponseDto();
         response.setCertificateCode(cert.getCertificateCode());
@@ -164,7 +173,8 @@ public class CertificateService {
     }
 
     private String buildCanonicalPayload(String code, UUID userId, UUID courseId, String name, String title, double score, Instant issuedAt) {
-        return code + "|" + userId + "|" + courseId + "|" + name + "|" + title + "|" + score + "|" + issuedAt.toString();
+        Instant normalizedInstant = issuedAt != null ? issuedAt.truncatedTo(ChronoUnit.SECONDS) : Instant.EPOCH;
+        return code + "|" + userId + "|" + courseId + "|" + name + "|" + title + "|" + score + "|" + normalizedInstant.toString();
     }
 
     private String computeHmacSha256(String data, String secret) {
