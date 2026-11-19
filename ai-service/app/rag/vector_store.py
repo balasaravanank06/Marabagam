@@ -12,7 +12,13 @@ STOPWORDS = {
     "what", "is", "and", "its", "the", "a", "an", "in", "of", "to", "that",
     "for", "with", "are", "on", "at", "by", "from", "about", "how", "which",
     "can", "you", "tell", "me", "used", "make", "different", "other", "varieties",
-    "does", "do", "did", "was", "were", "been", "being", "have", "has", "had"
+    "does", "do", "did", "was", "were", "been", "being", "have", "has", "had", "provide"
+}
+
+BACKGROUND_WORDS = {
+    "sangam", "tamil", "ancient", "royal", "century", "history", "tradition",
+    "traditions", "period", "art", "arts", "traditional", "thirunelveli", "madurai",
+    "nadu", "state", "heritage", "culture", "cultural"
 }
 
 class VectorStore:
@@ -68,7 +74,24 @@ class VectorStore:
 
             # Extract distinct content keywords (length > 1, not stopword)
             words = re.findall(r'[\w\u0B80-\u0BFF]+', query_text.lower())
-            keywords = [w for w in set(words) if w not in STOPWORDS and len(w) > 1]
+            raw_keywords = [w for w in set(words) if w not in STOPWORDS and len(w) > 1]
+
+            # Expand morphological variants / common art form aliases
+            expanded_keywords = set(raw_keywords)
+            for kw in raw_keywords:
+                if "silamb" in kw:
+                    expanded_keywords.update(["silambam", "silamb"])
+                elif "parai" in kw:
+                    expanded_keywords.update(["parai"])
+                elif "karag" in kw:
+                    expanded_keywords.update(["karagattam", "karagam"])
+                elif "thanjavur" in kw or "tanjore" in kw:
+                    expanded_keywords.update(["thanjavur", "tanjore"])
+                elif "kanchipuram" in kw or "kanchi" in kw:
+                    expanded_keywords.update(["kanchipuram", "kanchi"])
+
+            keywords = list(expanded_keywords)
+            specific_keywords = [kw for kw in keywords if kw not in BACKGROUND_WORDS]
 
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # 1. Vector Search Query
@@ -86,12 +109,12 @@ class VectorStore:
                 for row in cur.fetchall():
                     results_map[str(row["chunk_id"])] = dict(row)
 
-                # 2. Keyword/Full-Text Search Query (if keywords present)
-                if keywords:
-                    # Construct ILIKE conditions for top 6 prominent keywords
+                # 2. Keyword Search Query (prioritizing specific keywords)
+                search_targets = specific_keywords if specific_keywords else keywords
+                if search_targets:
                     like_clauses = []
                     like_params = [vec_str]
-                    for kw in keywords[:6]:
+                    for kw in search_targets[:6]:
                         like_clauses.append("(c.content_text ILIKE %s OR d.title ILIKE %s OR d.title_ta ILIKE %s)")
                         like_params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
 
@@ -119,22 +142,26 @@ class VectorStore:
                 title_lower = (row.get("title") or "").lower()
                 title_ta_lower = (row.get("title_ta") or "").lower()
 
-                # Calculate keyword match coverage
-                matches = 0
-                if keywords:
-                    for kw in keywords:
-                        if kw in content_lower or kw in title_lower or kw in title_ta_lower:
-                            matches += 1
-                    kw_ratio = matches / len(keywords)
-                else:
-                    kw_ratio = 0.0
+                combined_text = f"{content_lower} {title_lower} {title_ta_lower}"
+                chunk_tokens = set(re.findall(r'[\w\u0B80-\u0BFF]+', combined_text))
 
-                if matches > 0:
-                    # Robust hybrid relevance score (0.75 - 0.98)
-                    if kw_ratio >= 0.4 or matches >= 2:
-                        final_sim = max(0.85, 0.4 * v_sim + 0.6 * kw_ratio)
+                # Calculate specific keyword matches using exact token membership
+                specific_matches = 0
+                if specific_keywords:
+                    for kw in specific_keywords:
+                        if kw in chunk_tokens:
+                            specific_matches += 1
+
+                # If query contains specific domain nouns but none match this chunk,
+                # do not inflate score based purely on generic background words (e.g. "Sangam", "royal")
+                if specific_keywords and specific_matches == 0:
+                    final_sim = v_sim
+                elif specific_matches > 0:
+                    spec_ratio = specific_matches / len(specific_keywords)
+                    if spec_ratio >= 0.4 or specific_matches >= 2:
+                        final_sim = max(0.85, 0.4 * v_sim + 0.6 * spec_ratio)
                     else:
-                        final_sim = max(0.72, 0.5 * v_sim + 0.5 * kw_ratio)
+                        final_sim = max(0.72, 0.5 * v_sim + 0.5 * spec_ratio)
                 else:
                     final_sim = v_sim
 
@@ -150,7 +177,7 @@ class VectorStore:
                     "sourceType": row.get("source_type"),
                     "similarity": round(final_sim, 4),
                     "vectorSimilarity": round(v_sim, 4),
-                    "keywordMatches": matches
+                    "keywordMatches": specific_matches
                 })
 
             # Sort by highest combined similarity
