@@ -213,7 +213,7 @@ class RagService:
             if is_ta:
                 refusal_ta = (
                     "மரபகம் தமிழ் பாரம்பரிய கலைகள், தற்காப்புக் கலைகள், நாட்டுப்புற கலைகள் மற்றும் செவ்வியல் கைவினைகளுக்கான "
-                    "பிரத்யேக டிஜிட்டல் களஞ்சியமாகும். எனது தரவுத்தளத்தில் உங்கள் கேள்வி தொடர்பான விவரங்கள் இல்லை.\n\n"
+                    "பிரத்யேக டிஜிட்டல் களஞ்சியமாகும். எனது தரவுத்தளத்தில் போதுமான சரிபார்க்கப்பட்ட தகவல்கள் இல்லை.\n\n"
                     "இருப்பினும், செவ்வியல் நுண்கலைகள் மற்றும் சிற்பக்கலை குறித்து நீங்கள் அறிய விரும்பினால்:\n"
                     "- **தஞ்சாவூர் ஓவியம்** (Thanjavur Painting) — 22 காரட் தங்க இழை மற்றும் சுதை வேலைப்பாடு.\n"
                     "- **சுவாமிமலை வெண்கலச் சிற்பங்கள்** (Swamimalai Bronze Casting) — சோழர் கால மெழுகு வார்ப்பு மரபு.\n"
@@ -223,7 +223,7 @@ class RagService:
                 return {"answer": refusal_ta, "language": "ta", "sources": [], "relevanceScore": 0.15}
             else:
                 refusal_en = (
-                    "Marabagam is a digital heritage platform dedicated specifically to preserving and exploring **Tamil cultural heritage, traditional martial arts, folk dances, classical music, and heritage crafts**. I do not have verified documentation on topics outside Tamil heritage.\n\n"
+                    "Marabagam is a digital heritage platform dedicated specifically to preserving and exploring **Tamil cultural heritage, traditional martial arts, folk dances, classical music, and heritage crafts**. I do not have sufficient verified cultural information on topics outside Tamil heritage in our archives.\n\n"
                     "However, if you are interested in exploring Tamil classical visual arts, sculpture, and master craftsmanship, I would be delighted to guide you through:\n"
                     "- **Thanjavur Painting** (தஞ்சாவூர் ஓவியம்) — Sacred gesso relief and 22-karat gold leaf art.\n"
                     "- **Swamimalai Bronze Casting** (சுவாமிமலை வெண்கலச் சிற்பங்கள்) — Chola lost-wax bronze iconography.\n"
