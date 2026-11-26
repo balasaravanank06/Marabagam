@@ -15,10 +15,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Gitleaks
+        run: |
+          VERSION=8.24.3
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install gitleaks /usr/local/bin/gitleaks
+
       - name: Secret Scanning (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gitleaks git . --verbose
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -113,9 +118,9 @@ jobs:
       - name: Copy env template
         run: |
           cp .env.example .env
-          echo "POSTGRES_PASSWORD=ci_test_password_123_456" >> .env
-          echo "JWT_SECRET=[REDACTED]" >> .env
-          echo "MARABAGAM_CERTIFICATE_SECRET=[REDACTED]" >> .env
+          echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)" >> .env
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+          echo "MARABAGAM_CERTIFICATE_SECRET=$(openssl rand -hex 32)" >> .env
 
       - name: Validate Production Docker Compose Config
         run: docker compose -f deployment/docker-compose.prod.yml config
